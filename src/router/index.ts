@@ -3,6 +3,7 @@ import LoginPage from "../modules/login/view/login_page.vue"
 import UserPage from "../modules/user/view/user_page.vue"
 import Usuariologado from "../Usuariologado.vue"
 import LoginTestPage from "../modules/login/view/logintest_page.vue"
+import Home_catalog from "../modules/catalog/view/home_catalog.vue"
 
 const router = createRouter({
     history: createWebHistory(),
@@ -26,6 +27,11 @@ const router = createRouter({
             path: '/loginteste',
             name: 'loginteste',
             component: LoginTestPage
+        },
+        {
+            path: '/catalogo',
+            name: 'catalogo',
+            component: Home_catalog
         }
     ]
 })

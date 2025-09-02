@@ -43,7 +43,7 @@ emailError.value = "";
         });
         console.log("login feito ", newReq);
         (email.value = ""), (password.value = "");
-        router.push({path: '/logado'})
+        router.push({path: '/catalogo'})
       } catch (error) {
         passwordError.value = "Usuário ou senha incorretos.";
         console.log("Usuário ou senha incorretos.", error);
@@ -101,11 +101,11 @@ emailError.value = "";
 
 <template>
   <main class="flex min-h-screen items-center justify-center p-4 bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-zinc-800 dark:to-zinc-800 dark:text-slate-100">
-    <div class="w-full max-w-md">
+    <div class="w-full max-w-md lg:w-1/2">
       <!-- Card -->
       <div class="">
         <div
-          class="rounded-2xl bg-white/80 shadow-xl ring-1 ring-orange-200 backdrop-blur dark:bg-orange-900/70 dark:ring-orange-800 m-10"
+          class="rounded-2xl bg-white/80 shadow-xl ring-1 ring-orange-200 backdrop-blur dark:bg-orange-900/70 dark:ring-orange-800 m-10 lg:w-full"
         >
           <div class="p-8">
             <!-- Logo / Marca -->
