@@ -100,7 +100,7 @@ emailError.value = "";
 <!-- </template> -->
 
 <template>
-  <main class="flex min-h-screen items-center justify-center p-4 bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-zinc-800 dark:to-zinc-800 dark:text-slate-100">
+  <main class="flex min-h-screen items-center justify-center p-4 bg-emerald-950 text-emerald-950 dark:emerald-950 dark:text-slate-100">
     <div class="w-full max-w-md lg:w-1/2">
       <!-- Card -->
       <div class="">
@@ -208,7 +208,7 @@ emailError.value = "";
 
               <button
                 type="submit"
-                class="mt-2 w-full rounded-xl bg-green-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-800 active:scale-[.99] dark:bg-green-800 dark:text-white dark:hover:bg-lime-900"
+                class="mt-2 w-full rounded-xl bg-emerald-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[.99] dark:bg-emerald-900 dark:text-white dark:hover:bg-emerald-800"
               >
                 Entrar
               </button>
