@@ -37,11 +37,18 @@ emailError.value = "";
   if (!valid) return; 
 
       try {
-        const newReq = await LoginMethod({
+        const newReq = {
           email: email.value,
           password_hash: password.value,
-        });
-        console.log("login feito ", newReq);
+        }
+
+        const response = await LoginMethod(newReq);
+        if (response.success == 'false') {
+          router.push('/loginteste')
+        }
+        console.log(response);
+        
+
         (email.value = ""), (password.value = "");
         router.push({path: '/catalogo'})
       } catch (error) {
