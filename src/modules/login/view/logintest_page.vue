@@ -2,6 +2,7 @@
 import { defineComponent, ref } from "vue";
 import { LoginMethod } from "../repository/login_repository";
 import { useRouter } from "vue-router";
+import type { AccountUser } from "../../user/domain/user";
 
 export default defineComponent({
   setup() {
@@ -9,6 +10,7 @@ export default defineComponent({
     const password = ref("");
     const router = useRouter();
     const showPassword = ref(false);
+    const user = ref<AccountUser | null>(null);
 
     const emailError = ref("");
     const passwordError = ref("");
@@ -43,7 +45,27 @@ emailError.value = "";
         });
         console.log("login feito ", newReq);
         (email.value = ""), (password.value = "");
-        router.push({path: '/catalogo'})
+
+        // salva user no cache do navegador
+
+        localStorage.setItem("user", JSON.stringify(newReq));
+
+        const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+            user.value = JSON.parse(storedUser);
+          }
+
+          // verifica user group do user. Dependendo de qual grupo ele faz parte, redireciona para a rota correta
+
+        if (user.value?.id_user_group == 2) {
+
+          router.push({path: '/admin/catalog'})
+
+        } else {
+
+        router.push({path: '/catalog'})
+
+        }
       } catch (error) {
         passwordError.value = "Usuário ou senha incorretos.";
         console.log("Usuário ou senha incorretos.", error);

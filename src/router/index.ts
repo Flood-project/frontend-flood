@@ -25,13 +25,13 @@ const router = createRouter({
             component: Usuariologado
         },
         {
-            path: '/loginteste',
-            name: 'loginteste',
+            path: '/testlogin',
+            name: 'logintest',
             component: LoginTestPage
         },
         {
-            path: '/catalogo',
-            name: 'catalogo',
+            path: '/catalog',
+            name: 'catalog',
             component: Home_catalog
         },
         {
