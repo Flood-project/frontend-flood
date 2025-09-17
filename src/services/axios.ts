@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getAccessToken, removeAccessToken } from "./token";
+import { getAccessToken, getRefreshToken, removeAccessTokens, setRefreshToken } from "./token";
 import { router } from "../router";
 
 const baseUrl = import.meta.env.VITE_BASE_URL 
@@ -26,13 +26,28 @@ instance.interceptors.request.use(
 
 instance.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            removeAccessToken();
-            console.log('usuário inautorizado, token removido ', removeAccessToken());
-            
-            router.push('/loginteste')
-            //window.location.href = "/loginteste";
+    async (error) => {
+        const originalRequest = error.config;
+
+        //se houver um erro 401 faz a requisição para o refresh token
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            try {
+                const oldToken = getRefreshToken()
+                if (!oldToken) {
+                    return null;
+                }
+
+                const newToken = await setRefreshToken(oldToken);
+
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                return instance(originalRequest);
+            } catch (error) {
+                removeAccessTokens();
+                window.location.href = "/loginteste";
+                return Promise.reject(error);
+            }
+           
         }
         return Promise.reject(error)
     }

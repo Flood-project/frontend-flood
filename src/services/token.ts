@@ -1,17 +1,44 @@
 const setAccessToken = (accessToken: string): void => {
-    localStorage.setItem("accessToken", accessToken);
+    localStorage.setItem("accessToken", accessToken); //seta access token no localStorage do navegador
 }
 
 const getAccessToken = (): string | null => {
-    const token = localStorage.getItem("accessToken")
+    const token = localStorage.getItem("accessToken") //adiciona em uma variável o accessToken que foi setado no localStorage. Mesma coisa para set e get do refresh token
     if (!token) {
         return null;
     }
     return token;
 }
 
-const removeAccessToken = (): void => {    
-    if (getAccessToken() != null) localStorage.removeItem("accessToken")
+const setRefreshToken = (refreshToken: string): void => {
+    localStorage.setItem("refreshToken", refreshToken)
 }
 
-export { setAccessToken, getAccessToken, removeAccessToken }
+const getRefreshToken = (): string | null => {
+    const refreshToken = localStorage.getItem("refreshToken")
+    if (!refreshToken) {
+        return null;
+    }
+    console.log("refresh token, ", refreshToken);
+    return refreshToken;
+}
+
+const hasTokens = (): boolean | null => {
+    if (!getAccessToken && !getRefreshToken) {
+        return null
+    }
+
+    return true
+}
+
+const removeAccessTokens = (): void => {    
+    if (getAccessToken() != null) {
+        localStorage.removeItem("accessToken")
+    }
+
+    if (getRefreshToken() != null) {
+        localStorage.removeItem("refreshToken")
+    }
+}
+
+export { setAccessToken, getAccessToken, setRefreshToken, getRefreshToken, hasTokens, removeAccessTokens }

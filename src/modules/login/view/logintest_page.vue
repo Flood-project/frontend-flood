@@ -43,9 +43,6 @@ emailError.value = "";
         }
 
         const response = await LoginMethod(newReq);
-        if (response.success == 'false') {
-          router.push('/loginteste')
-        }
         console.log(response);
         
 
