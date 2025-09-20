@@ -1,54 +1,46 @@
 import type { Login } from "../domain/login";
 import { instance } from "../../../services/axios";
 import { removeAccessTokens, setAccessToken, setRefreshToken } from "../../../services/token";
+import type { LoginResponse } from "../domain/login_response";
 
-export const LoginMethod = async (payload: Login): Promise<Login> => {
+export const LoginMethod = async (payload: Login): Promise<LoginResponse> => {
     try{
-        const response = await instance.post<Login>('/login', payload);  //faz requisição a rota "/login" do backend
+        const response = await instance.post<LoginResponse>('/login', payload);
         
         if (typeof response.data === 'object') {
             if (response.data.token && response.data.refresh_token) {
                 setAccessToken(response.data.token);
                 setRefreshToken(response.data.refresh_token)
-                console.log("refresh setado: ", response.data.refresh_token);
-                
             }
         }
-        
-        //se o login deu certo, pega o token e o refresh token da resposta e adiciona nas variáveis token e refresh_token
-        return {
-            success: true,
-            data: {
-                token: response.data.token,
-                refresh_token: response.data.refresh_token
-            }
-        }
-    } catch (error) {
+    
+        return response.data;
+    } catch (error: any) {
         removeAccessTokens();
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Erro ao fazer login'
-        }
+        throw new Error(error.response?.data?.message || 'Erro ao fazer login')
     }
 }
 
 export const RefreshMethod = async (refreshToken: string): Promise<string> => {
-    try {
+    try {  
         if (!refreshToken) {
             throw new Error("Refresh token não existe.")
         }
+        
+        const response = await instance.post<LoginResponse>('/login/refresh', {
+            refresh_token: refreshToken
+        });
 
-        //faz requisição a rota "/refresh" do backend
-        const response = await instance.post<Login>('/refresh', refreshToken);
-
-        if (response.data.token) {
+        if (response.data.token && response.data.refresh_token) {
             setAccessToken(response.data.token);
+            setRefreshToken(response.data.refresh_token)
+
             return response.data.token
         }
 
         throw new Error("Token não recebido no refresh")
-    } catch (error) {
+    } catch (error: any) {
         removeAccessTokens();
-        throw error;
+        throw new Error(error.response?.data?.message || "Erro ao realizar refresh token");
     }
 }

@@ -21,7 +21,7 @@ const router = createRouter({
             path: '/users',
             name: 'User',
             component: UserPage,
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: true, role: 3 }
         },
         {
             path: '/logado',
@@ -49,7 +49,7 @@ const router = createRouter({
 
 //antes de cada rota verifica
 router.beforeEach(async (to, from) => {
-    const claims = getClaims();
+    var claims = getClaims();
     let accessToken = getAccessToken();
 
     if (to.name === "loginteste") {
@@ -57,19 +57,13 @@ router.beforeEach(async (to, from) => {
     }
     
     if(to.meta.requiresAuth && !accessToken) {
-        return {
-            name: 'loginteste'
-        }
-    }
-
-    if (!accessToken) {
         removeAccessTokens();
         return {
             name: 'loginteste'
         }
     }
 
-    if (isTokenExpired(accessToken)) {
+    if (accessToken && isTokenExpired(accessToken)) {
         const refreshToken = getRefreshToken();
         if (!refreshToken) {
             removeAccessTokens();
@@ -82,6 +76,7 @@ router.beforeEach(async (to, from) => {
             const newToken = await RefreshMethod(refreshToken)
             setAccessToken(newToken);
             accessToken = newToken
+            claims = getClaims();
         } catch (error) {
             removeAccessTokens();
             return {
@@ -90,11 +85,12 @@ router.beforeEach(async (to, from) => {
         }
     }
 
-    if(to.meta.role && claims?.id_user_group !== 1) {
+    if(to.meta.role && claims?.id_user_group !== to.meta.role) {
         return {
             name: 'Login' //ou para página forbidden
         }
     }
+    return true;
 })
 
 export { router }

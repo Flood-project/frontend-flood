@@ -1,9 +1,9 @@
 const setAccessToken = (accessToken: string): void => {
-    localStorage.setItem("accessToken", accessToken); //seta access token no localStorage do navegador
+    localStorage.setItem("accessToken", accessToken);
 }
 
 const getAccessToken = (): string | null => {
-    const token = localStorage.getItem("accessToken") //adiciona em uma variável o accessToken que foi setado no localStorage. Mesma coisa para set e get do refresh token
+    const token = localStorage.getItem("accessToken")
     if (!token) {
         return null;
     }
@@ -19,7 +19,7 @@ const getRefreshToken = (): string | null => {
     if (!refreshToken) {
         return null;
     }
-    console.log("refresh token, ", refreshToken);
+
     return refreshToken;
 }
 
