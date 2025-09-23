@@ -3,6 +3,8 @@ import { defineComponent, ref } from "vue";
 import { LoginMethod } from "../repository/login_repository";
 import { useRouter } from "vue-router";
 import type { AccountUser } from "../../user/domain/user";
+import type { MyClaims } from "../repository/login_repository";
+import { jwtDecode } from "jwt-decode";
 
 export default defineComponent({
   setup() {
@@ -39,38 +41,35 @@ emailError.value = "";
   if (!valid) return; 
 
       try {
-        const newReq = await LoginMethod({
-          email: email.value,
-          password_hash: password.value,
-        });
-        console.log("login feito ", newReq);
-        (email.value = ""), (password.value = "");
+    const newReq = await LoginMethod({
+      email: email.value,
+      password_hash: password.value,
+    });
 
-        // salva user no cache do navegador
+    console.log("login feito", newReq);
 
-        localStorage.setItem("user", JSON.stringify(newReq));
+    // pega o access token do backend
+    const token = newReq.token;
 
-        const storedUser = localStorage.getItem("user");
-          if (storedUser) {
-            user.value = JSON.parse(storedUser);
-          }
+    // salva no localStorage
+    localStorage.setItem("token", token);
+    localStorage.setItem("refresh_token", newReq.refresh_token);
 
-          // verifica user group do user. Dependendo de qual grupo ele faz parte, redireciona para a rota correta
+    // decodifica claims
+    const claims = jwtDecode<MyClaims>(token);
+    console.log("Claims decodificadas:", claims);
 
-        if (user.value?.id_user_group == 2) {
+    // redireciona conforme grupo do usuário
+    if (claims.id_user_group === 1) {
+      router.push({ path: "/admin/catalog" });
+    } else {
+      router.push({ path: "/catalog" });
+    }
 
-          router.push({path: '/admin/catalog'})
-
-        } else {
-
-        router.push({path: '/catalog'})
-
-        }
-      } catch (error) {
-        passwordError.value = "Usuário ou senha incorretos.";
-        console.log("Usuário ou senha incorretos.", error);
-        
-      }
+  } catch (error) {
+    passwordError.value = "Usuário ou senha incorretos.";
+    console.log("Usuário ou senha incorretos.", error);
+  }
     };
 
     return { 
