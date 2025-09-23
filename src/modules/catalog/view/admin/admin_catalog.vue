@@ -2,19 +2,51 @@
 import { defineComponent, ref, onMounted } from "vue";
 import type { Product } from "../../domain/product"; 
 import { useRouter } from "vue-router";
-import { fetchProducts } from "../../repository/product_repository";
+import { fetchProducts, updateProduct, deleteProductById } from "../../repository/product_repository";
 
 
 export default defineComponent({
   setup() {
     const products = ref<Product[]>([]);
+    const editingProduct = ref<Product | null>(null);
+
+    const product = ref<Product>();
 
     onMounted(async () => {
       products.value = await fetchProducts();
     });
 
+    // Excluir produto
+    const deleteProduct = async (id: number) => {
+      await deleteProductById(id); // chamada ao repositório / API
+      products.value = products.value.filter((p) => p.id !== id);
+    };
+
+    // Editar produto
+    const editProduct = (product: Product) => {
+      editingProduct.value = { ...product }; // abre modal ou inline editing
+    };
+
+    // Salvar edição
+    const saveProduct = async () => {
+      if (editingProduct.value) {
+        const updated = await updateProduct(editingProduct.value);
+        // atualiza na lista
+        const idx = products.value.findIndex((p) => p.id === updated.id);
+        if (idx !== -1) {
+          products.value[idx] = updated;
+        }
+        editingProduct.value = null; // fecha modal/edição
+      }
+    };
+
     return {
+      product,
       products,
+      editingProduct,
+      deleteProduct,
+      editProduct,
+      saveProduct,
     };
   },
 });
@@ -36,53 +68,99 @@ export default defineComponent({
 <!-- </template> -->
 
 <template>
+  
   <main class="flex min-h-screen bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-gray-300 dark:to-gray-400 dark:text-slate-100">
+    
     <div class="flex flex-col items-center w-full">
+
+      <header class="bg-emerald-900 w-full h-26 flex justify-between">
+
+      <div class="w-1/2">
+
+        <img src="../../../../../imgstorage/logo/robustec.jpg" alt="" class="w-full h-full object-contain pb-2">
+
+      </div>
+
+      <div class="w-2/5">
+
+        <h1 class="inline">teste</h1>
+
+        <h1 class="inline">teste</h1>
+
+        <h1 class="inline">teste</h1>
+
+      </div>
+
+    </header>
+
       <!-- título -->
-      <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+      <div class="flex justify-between items-center m-10 gap-x-10"> 
+
+        <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+
+        <button class="b-10 p-2 h-12 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-2" >
+
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+
+          
+          Adicionar Produto</button>
+
+      </div>
 
       <!-- grid -->
       <div id="produtos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center  max-w-7xl">
         
-        <!-- card exemplo -->
-        <div
+        <div v-for="product in products" :key="product.id"
           class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
         >
           <!-- Foto -->
-          <img src="../../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
+          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
 
           <!-- Conteúdo -->
           <div class="p-5 flex flex-col space-y-4">
             <!-- Tipo e nome -->
             <div>
-              <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio 1.500 Kg Acionamento Superior RAL-552</h1>
+              <h1 class="font-fira text-emerald-800 text-sm">Novo</h1>
+              <h1 class="font-fira text-zinc-800 text-xl font-semibold">Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.id_acionamento }}</h1>
             </div>
 
             <!-- Preço -->
             <div>
-              <h1 class="text-zinc-800 text-sm">Valor</h1>
-              <div class="flex justify-between">
-                <h1 class="text-zinc-700 font-bold text-2xl">R$ 17.000.000,00</h1>
+              <h1 class="font-fira text-zinc-800 text-sm">Código</h1>
+              <div class="flex space-x-3">
+                <h1 class="font-fira text-zinc-700 font-bold text-2xl">{{ product.codigo }}</h1>
                 <!-- Botões de edição e exclusão -->
-                <div>
+                <div class="flex ml-auto">
                   <a href="">
-                  <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
+                    <div class="relative group flex items-center justify-center">
+                      <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5" @click="editProduct(product)">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                        </svg>
 
-                  </button>
+                      </button>
+
+                       <span class="font-fira absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2">
+                        Editar
+                      </span>
+                  </div>
                   </a>
                 </div>
                 <div>
                   <a href="">
-                  <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
+                    <div class="relative group flex items-center justify-center">
+                      <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" @click="deleteProduct(product.id)">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
 
-                  </button>
+                      </button>
+                      <span class="font-fira absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2">
+                        Remover
+                      </span>
+                  </div>
                   </a>
                 </div>
                 <!-- Botões de edição e exclusão -->
@@ -99,315 +177,7 @@ export default defineComponent({
 
             <!-- Botão -->
              <a href="">
-              <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-500 hover:cursor-pointer text-white font-bold text-lg">
-                Ver detalhes
-              </button>
-            </a>
-          </div>
-        </div>
-
-        <div
-          class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
-        >
-          <!-- Foto -->
-          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
-
-          <!-- Conteúdo -->
-          <div class="p-5 flex flex-col space-y-4">
-            <!-- Tipo e nome -->
-            <div>
-              <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio 1.500 Kg Acionamento Superior RAL-552</h1>
-            </div>
-
-            <!-- Preço -->
-             <div>
-              <h1 class="text-zinc-800 text-sm">Valor</h1>
-              <div class="flex justify-between">
-                <h1 class="text-zinc-700 font-bold text-2xl">R$ 17.000.000,00</h1>
-                <!-- Botões de edição e exclusão -->
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <!-- Botões de edição e exclusão -->
-              </div>
-            </div>
-
-            <!-- Características -->
-            <!-- <div class="flex flex-col space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="font-semibold text-zinc-800">Ano/Modelo</span>
-                <span class="text-emerald-800">2025</span>
-              </div>
-            </div> -->
-
-            <!-- Botão -->
-            <a href="">
-              <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-500 hover:cursor-pointer text-white font-bold text-lg">
-                Ver detalhes
-              </button>
-            </a>
-          </div>
-        </div>
-
-
-        <div
-          class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
-        >
-          <!-- Foto -->
-          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
-
-          <!-- Conteúdo -->
-          <div class="p-5 flex flex-col space-y-4">
-            <!-- Tipo e nome -->
-            <div>
-              <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio 1.500 Kg Acionamento Superior RAL-552</h1>
-            </div>
-
-            <!-- Preço -->
-             <div>
-              <h1 class="text-zinc-800 text-sm">Valor</h1>
-              <div class="flex justify-between">
-                <h1 class="text-zinc-700 font-bold text-2xl">R$ 17.000.000,00</h1>
-                <!-- Botões de edição e exclusão -->
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <!-- Botões de edição e exclusão -->
-              </div>
-            </div>
-
-            <!-- Características -->
-            <!-- <div class="flex flex-col space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="font-semibold text-zinc-800">Ano/Modelo</span>
-                <span class="text-emerald-800">2025</span>
-              </div>
-            </div> -->
-
-            <!-- Botão -->
-            <a href="">
-              <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-500 hover:cursor-pointer text-white font-bold text-lg">
-                Ver detalhes
-              </button>
-            </a>
-          </div>
-        </div>
-
-
-        <div
-          class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
-        >
-          <!-- Foto -->
-          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
-
-          <!-- Conteúdo -->
-          <div class="p-5 flex flex-col space-y-4">
-            <!-- Tipo e nome -->
-            <div>
-              <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio 1.500 Kg Acionamento Superior RAL-552</h1>
-            </div>
-
-            <!-- Preço -->
-             <div>
-              <h1 class="text-zinc-800 text-sm">Valor</h1>
-              <div class="flex justify-between">
-                <h1 class="text-zinc-700 font-bold text-2xl">R$ 17.000.000,00</h1>
-                <!-- Botões de edição e exclusão -->
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <!-- Botões de edição e exclusão -->
-              </div>
-            </div>
-
-            <!-- Características -->
-            <!-- <div class="flex flex-col space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="font-semibold text-zinc-800">Ano/Modelo</span>
-                <span class="text-emerald-800">2025</span>
-              </div>
-            </div> -->
-
-            <!-- Botão -->
-            <a href="">
-              <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-500 hover:cursor-pointer text-white font-bold text-lg">
-                Ver detalhes
-              </button>
-            </a>
-          </div>
-        </div>
-
-        <div
-          class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
-        >
-          <!-- Foto -->
-          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
-
-          <!-- Conteúdo -->
-          <div class="p-5 flex flex-col space-y-4">
-            <!-- Tipo e nome -->
-            <div>
-              <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio 1.500 Kg Acionamento Superior RAL-552</h1>
-            </div>
-
-            <!-- Preço -->
-             <div>
-              <h1 class="text-zinc-800 text-sm">Valor</h1>
-              <div class="flex justify-between">
-                <h1 class="text-zinc-700 font-bold text-2xl">R$ 17.000.000,00</h1>
-                <!-- Botões de edição e exclusão -->
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <!-- Botões de edição e exclusão -->
-              </div>
-            </div>
-
-            <!-- Características -->
-            <!-- <div class="flex flex-col space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="font-semibold text-zinc-800">Ano/Modelo</span>
-                <span class="text-emerald-800">2025</span>
-              </div>
-            </div> -->
-
-            <!-- Botão -->
-            <a href="">
-              <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-500 hover:cursor-pointer text-white font-bold text-lg">
-                Ver detalhes
-              </button>
-            </a>
-          </div>
-        </div>
-
-
-        <div
-          class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
-        >
-          <!-- Foto -->
-          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
-
-          <!-- Conteúdo -->
-          <div class="p-5 flex flex-col space-y-4">
-            <!-- Tipo e nome -->
-            <div>
-              <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio 1.500 Kg Acionamento Superior RAL-552</h1>
-            </div>
-
-            <!-- Preço -->
-             <div>
-              <h1 class="text-zinc-800 text-sm">Valor</h1>
-              <div class="flex justify-between">
-                <h1 class="text-zinc-700 font-bold text-2xl">R$ 17.000.000,00</h1>
-                <!-- Botões de edição e exclusão -->
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <div>
-                  <a href="">
-                  <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-
-                  </button>
-                  </a>
-                </div>
-                <!-- Botões de edição e exclusão -->
-              </div>
-            </div>
-
-            <!-- Características -->
-            <!-- <div class="flex flex-col space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="font-semibold text-zinc-800">Ano/Modelo</span>
-                <span class="text-emerald-800">2025</span>
-              </div>
-            </div> -->
-
-            <!-- Botão -->
-            <a href="">
-              <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-500 hover:cursor-pointer text-white font-bold text-lg">
+              <button class="font-fira bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-900 text-white font-bold text-lg hover:cursor-pointer">
                 Ver detalhes
               </button>
             </a>
@@ -426,15 +196,28 @@ export default defineComponent({
             <h1 class="text-3xl font-semibold font-sans-serif">Fale conosco</h1>
           </div>
 
-          <div>
+          <div class="bg-white w-1/2 h-80 mb-5 rounded-xl p-10 shadow-xl">
 
             <form action="">
-              <label for="">
+              <label for="" class="font-fira text-black text-xl">
                 Nome
               </label>
-              <label for="">
+              <input
+                  placeholder="John Doe"
+                  class="w-full rounded-xl border border-black bg-white px-3 py-2 mt-2 mb-5 text-sm 
+                  shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-black 
+                  dark:border-black dark:bg-orange-950/60 dark:focus:border-black dark:focus:rin"
+                />
+              <label for="" class="font-fira text-black text-xl">
                 Email
               </label>
+              <input
+                  placeholder="voce@exemplo.com"
+                  class="w-full rounded-xl border border-black bg-white px-3 py-2 mt-2 mb-5 text-sm 
+                  shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-black 
+                  dark:border-black dark:bg-orange-950/60 dark:focus:border-black dark:focus:rin"
+                />
+                <button class="font-fira bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-600 hover:cursor-pointer text-white font-bold text-lg">Enviar</button>
             </form>
 
           </div>
@@ -449,12 +232,13 @@ export default defineComponent({
           <img src="../../../../../imgstorage/logo/robusteclogo.png" alt="Logo" class="h-20">
 
           <!-- Links -->
+           <h1 class="text-lime-500 font-fira">Robustec Indústria e Comércio Ltda</h1>
           <nav class="flex flex-wrap justify-center gap-6 text-base">
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
+            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
+            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
+            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
+            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
+            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
           </nav>
 
           <!-- Redes sociais -->
@@ -469,6 +253,12 @@ export default defineComponent({
                         <path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.131 3.022-3.131.876 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.303.621-1.303 1.258v1.51h2.218l-.354 2.326H9.25V16c3.824-.604 6.75-3.934 6.75-7.951"/>
                       </svg> 
             </a>
+            <a target="_blank" href="https://api.whatsapp.com/send/?phone=5433592200&text&type=phone_number&app_absent=0" class="hover:text-green-600">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-whatsapp h-10 w-10" viewBox="0 0 16 16">
+            <path d="M13.601 2.326A7.876 7.876 0 0 0 8.004 0C3.584 0 .016 3.566.016 7.986c0 1.409.368 2.781 1.07 3.986L0 16l4.134-1.067a7.951 7.951 0 0 0 3.87.986h.004c4.42 0 7.988-3.566 7.988-7.986a7.9 7.9 0 0 0-2.395-5.593m-5.597 12.02a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.463.635.657-2.396-.156-.247a6.574 6.574 0 0 1-1.02-3.548c0-3.634 2.961-6.597 6.6-6.597a6.56 6.56 0 0 1 4.674 1.938 6.53 6.53 0 0 1 1.928 4.659c0 3.635-2.961 6.596-6.624 6.619m3.62-4.941c-.197-.099-1.17-.578-1.351-.645-.181-.066-.314-.099-.446.099s-.512.644-.628.775c-.116.132-.232.149-.43.05s-.837-.308-1.594-.983c-.59-.526-.987-1.175-1.103-1.373-.116-.198-.012-.304.087-.402.089"/>
+            </svg>
+
+            </a>
           </div>
 
           <!-- Linha divisória -->
@@ -477,11 +267,11 @@ export default defineComponent({
           <!-- Direitos -->
           <div class="flex flex-col sm:flex-row justify-between items-center w-full text-sm">
             <p>&copy; 2025 - Robustec. 
-              <a href="#" class="hover:underline"> Termos e Condições</a>
+              <a href="https://www.robustec.ind.br/termos-de-uso" class="hover:underline"> Termos e Condições</a>
             </p>
             <p>
-              <a href="#" class="hover:underline">Privacidade</a> | 
-              <a href="#" class="hover:underline">Cookies</a>
+              <a href="https://www.robustec.ind.br/politica-de-privacidade" class="hover:underline">Privacidade</a> | 
+              <a href="https://www.robustec.ind.br/trabalhe-conosco/" class="hover:underline">Trabalhe conosco</a>
             </p>
           </div>
         </div>

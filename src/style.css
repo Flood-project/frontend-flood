@@ -1,7 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap');
 @import "tailwindcss";
 
-/* :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+ :root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif, Fira-Sans;
   line-height: 1.5;
   font-weight: 400;
 
@@ -13,7 +14,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-} */
+}  
 
 /* a {
   font-weight: 500;
