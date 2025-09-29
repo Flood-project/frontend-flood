@@ -2,13 +2,28 @@
 import { defineComponent, ref, onMounted } from "vue";
 import type { Product } from "../../domain/product"; 
 import { useRouter } from "vue-router";
-import { fetchProducts, updateProduct, deleteProductById } from "../../repository/product_repository";
+import { fetchProducts, updateProduct, deleteProductById, createProduct } from "../../repository/product_repository";
 
 
 export default defineComponent({
   setup() {
     const products = ref<Product[]>([]);
     const editingProduct = ref<Product | null>(null);
+    const newProduct = ref<Product | null>(null);
+
+    newProduct.value = {
+      id: 0,
+      codigo: "",
+      description: "",
+      capacidade_estatica: 0,
+      capacidade_trabalho: 0,
+      reducao: "",
+      altura_bucha: 0,
+      curso: 0,
+      id_bucha: 0,
+      id_acionamento: 0,
+      id_base: 0
+    };
 
     const product = ref<Product>();
 
@@ -22,21 +37,39 @@ export default defineComponent({
       products.value = products.value.filter((p) => p.id !== id);
     };
 
-    // Editar produto
-    const editProduct = (product: Product) => {
-      editingProduct.value = { ...product }; // abre modal ou inline editing
-    };
+    const isEditModalOpen = ref(false)
+
+    const isAddModalOpen = ref (false);
+
+    function openEditModal(product: Product) {
+      editingProduct.value = product!;
+      isEditModalOpen.value = true
+    }
+
+    function openAddModal() {
+      isAddModalOpen.value = true
+    }
 
     // Salvar edição
-    const saveProduct = async () => {
-      if (editingProduct.value) {
-        const updated = await updateProduct(editingProduct.value);
+    const editProduct = async (editingProduct: Product) => {
+      console.log(editingProduct);
+      if (editingProduct) {
+        const updated = await updateProduct(editingProduct.id, editingProduct);
         // atualiza na lista
-        const idx = products.value.findIndex((p) => p.id === updated.id);
-        if (idx !== -1) {
-          products.value[idx] = updated;
+        const index = products.value.findIndex((p) => p.id === updated.id);
+        if (index !== -1) {
+          products.value[index] = editingProduct;
         }
-        editingProduct.value = null; // fecha modal/edição
+        isEditModalOpen.value = false // fecha modal/edição
+      }
+    };
+
+    const addProduct = async (newProduct: Product) => {
+      console.log(newProduct, "antes de chamar create product");
+      if (newProduct) {
+        await createProduct(newProduct);
+        console.log(newProduct, "depois de chamar create product")
+        isAddModalOpen.value = false // fecha modal/edição
       }
     };
 
@@ -44,28 +77,18 @@ export default defineComponent({
       product,
       products,
       editingProduct,
+      newProduct,
       deleteProduct,
       editProduct,
-      saveProduct,
+      openEditModal,
+      isEditModalOpen,
+      isAddModalOpen,
+      openAddModal,
+      addProduct,
     };
   },
 });
 </script>
-
-
-<!-- <template> -->
-  <!-- <main class="flex min-h-screen p-4 bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-orange-800 dark:to-orange-900 dark:text-slate-100"> -->
-    <!-- <div> -->
-      <!-- <h2>Lista de Produtos</h2> -->
-      <!-- <ul> -->
-        <!-- <li v-for="product in products" :key="product.id"> -->
-          <!-- <strong>{{ product.name }}</strong> - {{ product.description }}   -->
-          <!-- (R$ {{ product.valor }}) -->
-        <!-- </li> -->
-      <!-- </ul> -->
-    <!-- </div> -->
-  <!-- </main> -->
-<!-- </template> -->
 
 <template>
   
@@ -77,17 +100,17 @@ export default defineComponent({
 
       <div class="w-1/2">
 
-        <img src="../../../../../imgstorage/logo/robustec.jpg" alt="" class="w-full h-full object-contain pb-2">
+        <img src="../../../../../imgstorage/logo/robustec.jpg" alt="" class="w-full h-full object-contain pb-2 ml-auto">
 
       </div>
 
-      <div class="w-2/5">
+      <div class="w-2/5 flex justify-end items-center gap-8 text-white mr-auto">
 
-        <h1 class="inline">teste</h1>
+        <h1 class="">Produtos</h1>
 
-        <h1 class="inline">teste</h1>
+        <h1 class="">Adicionar</h1>
 
-        <h1 class="inline">teste</h1>
+        <button class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700">Logout</button>
 
       </div>
 
@@ -98,7 +121,7 @@ export default defineComponent({
 
         <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
 
-        <button class="b-10 p-2 h-12 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-2" >
+        <button class="b-10 p-2 h-12 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-2" @click="openAddModal()">
 
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -133,10 +156,9 @@ export default defineComponent({
                 <h1 class="font-fira text-zinc-700 font-bold text-2xl">{{ product.codigo }}</h1>
                 <!-- Botões de edição e exclusão -->
                 <div class="flex ml-auto">
-                  <a href="">
                     <div class="relative group flex items-center justify-center">
-                      <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5" @click="editProduct(product)">
+                      <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700" @click="openEditModal(product)">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 p-0.5">
                           <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
                         </svg>
 
@@ -146,10 +168,8 @@ export default defineComponent({
                         Editar
                       </span>
                   </div>
-                  </a>
                 </div>
                 <div>
-                  <a href="">
                     <div class="relative group flex items-center justify-center">
                       <button class="b-10 p-1 bg-red-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-red-700">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" @click="deleteProduct(product.id)">
@@ -161,7 +181,6 @@ export default defineComponent({
                         Remover
                       </span>
                   </div>
-                  </a>
                 </div>
                 <!-- Botões de edição e exclusão -->
               </div>
@@ -183,6 +202,283 @@ export default defineComponent({
             </a>
           </div>
         </div>
+
+        <!-- Modal editar -->
+        <div
+          v-if="isEditModalOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
+        >
+          <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl">
+            <h3 class="text-lg font-semibold mb-4 text-white">Editar Produto</h3>
+
+            <!-- Grid responsiva -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Código</label>
+                <input
+                  v-model="editingProduct!.codigo"
+                  type="text"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Descrição</label>
+                <input
+                  v-model="editingProduct!.description"
+                  type="text"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Capacidade Estática (KG)</label>
+                <input
+                  v-model="editingProduct!.capacidade_estatica"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Capacidade de Trabalho (KG)</label>
+                <input
+                  v-model="editingProduct!.capacidade_trabalho"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Redução</label>
+                <input
+                  v-model="editingProduct!.reducao"
+                  type="text"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Altura da bucha (mm)</label>
+                <input
+                  v-model="editingProduct!.altura_bucha"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Bucha</label>
+                <input
+                  v-model="editingProduct!.id_bucha"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Acionamento</label>
+                <input
+                  v-model="editingProduct!.id_acionamento"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Base</label>
+                <input
+                  v-model="editingProduct!.id_base"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+            </div>
+
+            <!-- Campo isolado -->
+            <div class="mb-3 mt-4">
+              <label class="block text-sm font-medium text-white">Curso (mm)</label>
+              <input
+                v-model="editingProduct!.curso"
+                type="number"
+                class="w-full border rounded px-2 py-1 bg-emerald-950"
+              />
+            </div>
+
+            <!-- Botões -->
+            <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+              <button
+                @click="isEditModalOpen = false"
+                class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-black"
+              >
+                Cancelar
+              </button>
+              <button
+                @click="editProduct(editingProduct), isEditModalOpen = false"
+                class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+
+
+    <div
+  v-if="isAddModalOpen"
+  class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
+>
+  <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl w-1/2">
+    <h3 class="text-lg font-semibold mb-4">Adicionar Produto</h3>
+
+    <!-- Container do formulário -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      <!-- Coluna 1 -->
+      <div>
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Código</label>
+          <input
+            v-model="newProduct!.codigo"
+            type="text"
+            placeholder="Insira o código do produto"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Descrição</label>
+          <input
+            v-model="newProduct!.description"
+            type="text"
+            placeholder="Insira a descrição do produto"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Capacidade Estática (KG)</label>
+          <input
+            v-model="newProduct!.capacidade_estatica"
+            type="number"
+            placeholder="Insira a capacidade estática do produto"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+      </div>
+
+      <!-- Coluna 2 -->
+      <div>
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Capacidade de Trabalho (KG)</label>
+          <input
+            v-model="newProduct!.capacidade_trabalho"
+            type="number"
+            placeholder="Insira a capacidade de trabalho do produto"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Redução</label>
+          <input
+            v-model="newProduct!.reducao"
+            type="text"
+            placeholder="Insira a redução do produto"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Altura da Bucha (mm)</label>
+          <input
+            v-model="newProduct!.altura_bucha"
+            type="number"
+            placeholder="Insira a altura da bucha"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+      </div>
+
+      <!-- Coluna 3 -->
+      <div>
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Bucha</label>
+          <input
+            v-model="newProduct!.id_bucha"
+            type="number"
+            placeholder="Insira o tipo de bucha"
+            class="w-full border rounded px-2 py-1 bg-emerald-950"
+          />
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Acionamento</label>
+          <div>
+              <input
+                v-model="newProduct!.id_acionamento"
+                type="number"
+                placeholder="Insira o tipo de acionamento"
+                class="w-2/3 border rounded px-2 py-1 bg-emerald-950"
+              />
+              <button class="w-1/3 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+              </button>
+            </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-sm font-medium mb-1">Base</label>
+          <div>
+            <input
+              v-model="newProduct!.id_base"
+              type="number"
+              placeholder="Insira o tipo de base"
+              class="flex-1 border rounded px-2 py-1 bg-emerald-950"
+            />
+           <button class="b-10 p-1 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Linha inferior com curso + botões -->
+    <div class="grid grid-cols-2 items-center mt-4">
+      <!-- Campo curso à esquerda -->
+      <div>
+        <label class="block text-sm font-medium mb-1">Curso (mm)</label>
+        <input
+          v-model="newProduct!.curso"
+          type="number"
+          placeholder="Insira o curso do produto"
+          class="w-full border rounded px-2 py-1 bg-emerald-950"
+        />
+      </div>
+
+      <!-- Botões à direita -->
+      <div class="flex justify-end gap-2 self-end">
+        <button
+          @click="isAddModalOpen = false"
+          class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 hover:cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button
+          @click="addProduct(newProduct!), isAddModalOpen = false"
+          class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+        >
+          Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
         <!-- Repita o card ou use v-for -->
         
