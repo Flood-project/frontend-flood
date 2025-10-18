@@ -12,17 +12,26 @@ const router = createRouter({
         {
             path: '/login',
             name: 'Login',
-            component: LoginPage
+            component: LoginPage,
+            meta: {
+                requiresAuth: false
+            }
         },
         {
             path: '/users',
             name: 'User',
-            component: UserPage
+            component: UserPage,
+            meta: {
+                requiresAuth: true
+            }
         },
         {
             path: '/logado',
             name: 'Logado',
-            component: Usuariologado
+            component: Usuariologado,
+            meta: {
+                requiresAuth: true
+            }
         },
         {
             path: '/testlogin',
@@ -40,6 +49,19 @@ const router = createRouter({
             component: Admin_catalog
         }
     ]
+})
+
+router.beforeEach((to, from, next) => {
+    if (to.meta.requiresAuth) {
+        const token = localStorage.getItem('token');
+        if (token) {
+            next()
+        } else {
+            next('/login')
+        }
+    } else {
+        next();
+    }
 })
 
 export { router }
