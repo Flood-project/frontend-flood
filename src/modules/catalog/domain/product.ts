@@ -10,4 +10,4 @@ export interface Product {
     id_bucha: number;
     id_acionamento: number;
     id_base: number;
-}
+} 
