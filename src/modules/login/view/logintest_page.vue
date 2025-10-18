@@ -3,7 +3,7 @@ import { defineComponent, ref } from "vue";
 import { LoginMethod } from "../repository/login_repository";
 import { useRouter } from "vue-router";
 import type { AccountUser } from "../../user/domain/user";
-import type { MyClaims } from "../repository/login_repository";
+//import type { MyClaims } from "../repository/login_repository";
 import { jwtDecode } from "jwt-decode";
 
 export default defineComponent({
@@ -41,35 +41,22 @@ emailError.value = "";
   if (!valid) return; 
 
       try {
-    const newReq = await LoginMethod({
-      email: email.value,
-      password_hash: password.value,
-    });
+        const newReq = {
+          email: email.value,
+          password_hash: password.value,
+        }
 
-    console.log("login feito", newReq);
+        const response = await LoginMethod(newReq);
+        console.log(response);
+        
 
-    // pega o access token do backend
-    const token = newReq.token;
-
-    // salva no localStorage
-    localStorage.setItem("token", token);
-    localStorage.setItem("refresh_token", newReq.refresh_token);
-
-    // decodifica claims
-    const claims = jwtDecode<MyClaims>(token);
-    console.log("Claims decodificadas:", claims);
-
-    // redireciona conforme grupo do usuário
-    if (claims.id_user_group === 1) {
-      router.push({ path: "/admin/catalog" });
-    } else {
-      router.push({ path: "/catalog" });
-    }
-
-  } catch (error) {
-    passwordError.value = "Usuário ou senha incorretos.";
-    console.log("Usuário ou senha incorretos.", error);
-  }
+        (email.value = ""), (password.value = "");
+        router.push({path: '/catalogo'})
+      } catch (error) {
+        passwordError.value = "Usuário ou senha incorretos.";
+        console.log("Usuário ou senha incorretos.", error);
+        
+      }
     };
 
     return { 

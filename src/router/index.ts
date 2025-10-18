@@ -6,6 +6,9 @@ import LoginTestPage from "../modules/login/view/logintest_page.vue"
 import Home_catalog from "../modules/catalog/view/home_catalog.vue"
 import Admin_catalog from "../modules/catalog/view/admin/admin_catalog.vue"
 import Edit_product from "../modules/catalog/view/admin/edit_product.vue"
+import { getAccessToken, getRefreshToken, removeAccessTokens, setAccessToken } from "../services/token"
+import { getClaims, isTokenExpired } from "../services/jwt_decoder"
+import { RefreshMethod } from "../modules/login/repository/login_repository"
 
 const router = createRouter({
     history: createWebHistory(),
@@ -22,9 +25,7 @@ const router = createRouter({
             path: '/users',
             name: 'User',
             component: UserPage,
-            meta: {
-                requiresAuth: true
-            }
+            meta: { requiresAuth: true, role: 3 }
         },
         {
             path: '/logado',
@@ -40,29 +41,64 @@ const router = createRouter({
             component: LoginTestPage
         },
         {
-            path: '/catalog',
-            name: 'catalog',
-            component: Home_catalog
+            path: '/catalogo',
+            name: 'catalogo',
+            component: Home_catalog,
+            meta: { requiresAuth: true, role: 1} //apenas grupo usuário 1 com token pode acessar a rota
         },
         {
             path: '/admin/catalog',
             name: 'catalogo_admin',
-            component: Admin_catalog
+            component: Admin_catalog,
+            meta: { requiresAuth: true, role: 1 }
         },
     ]
 })
 
-router.beforeEach((to, from, next) => {
-    if (to.meta.requiresAuth) {
-        const token = localStorage.getItem('token');
-        if (token) {
-            next()
-        } else {
-            next('/login')
-        }
-    } else {
-        next();
+//antes de cada rota verifica
+router.beforeEach(async (to, from) => {
+    var claims = getClaims();
+    let accessToken = getAccessToken();
+
+    if (to.name === "loginteste") {
+        return true;
     }
+    
+    if(to.meta.requiresAuth && !accessToken) {
+        removeAccessTokens();
+        return {
+            name: 'loginteste'
+        }
+    }
+
+    if (accessToken && isTokenExpired(accessToken)) {
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) {
+            removeAccessTokens();
+            return {
+                name: 'loginteste'
+            }
+        }
+
+        try {
+            const newToken = await RefreshMethod(refreshToken)
+            setAccessToken(newToken);
+            accessToken = newToken
+            claims = getClaims();
+        } catch (error) {
+            removeAccessTokens();
+            return {
+                name: 'loginteste'
+            }
+        }
+    }
+
+    if(to.meta.role && claims?.id_user_group !== to.meta.role) {
+        return {
+            name: 'Login' //ou para página forbidden
+        }
+    }
+    return true;
 })
 
 export { router }
