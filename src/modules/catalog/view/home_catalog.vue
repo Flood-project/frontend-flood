@@ -1,54 +1,66 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from "vue";
-import type { Product } from "../domain/product"; 
-import { useRouter } from "vue-router";
-import { fetchProducts } from "../repository/product_repository";
-import type { AccountUser } from "../../user/domain/user";
+import { fetchWithComponents, withParams } from "../repository/product_repository";
+import type { ProductWithComponents } from "../domain/productWithComponents";
 
 
 export default defineComponent({
   setup() {
-    const products = ref<Product[]>([]);
-    const user = ref<AccountUser | null>(null);
+    const products = ref<ProductWithComponents[]>([]);
+    const total = ref(0);
+    const page = ref(1)
+    const limit = ref(10);
+    const loading = ref(false);
+    const search = ref("");
+    let timeout: number | undefined
+
+    const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
+      loading.value = true;
+
+      try {
+        const data = await withParams({
+          page: 1,
+          limit: 10,
+          ...options
+        });
+        console.log(data);
+        products.value = data.products_with_params
+        page.value = data.page
+        limit.value = data.limit
+        return data.products_with_params
+      } catch (err) {
+        console.log("Erro ao listar com parâmetros, ", err)
+        return []
+      } finally {
+        loading.value = false;
+      }
+    }
+
+    const onSearch = () => {
+      clearTimeout(timeout);
+      timeout = window.setTimeout(() => {
+        productsWithParams({ search: search.value })
+      }, 400)
+    }
 
     onMounted(async () => {
-      products.value = await fetchProducts();
+      
+      products.value = await productsWithParams({page: page.value,  limit: limit.value})
     });
-
-
-
-    console.log(products);
-
-    // const redirectProduct = async () => {
-
-      //redirecionar para a rota do produto correto
-
-      // product/{id}
-
-    // }
 
     return {
       products,
+      total,
+      page,
+      limit,
+      search,
+      loading,
+      productsWithParams,
+      onSearch
     };
   },
 });
 </script>
-
-
-<!-- <template>
-  <main class="flex min-h-screen p-4 bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-orange-800 dark:to-orange-900 dark:text-slate-100">
-    <div class="bg-red-700 w-full min-h-screen">
-      <h2>Lista de Produtos</h2>
-      <ul>
-        <li v-for="product in products" :key="product.id">
-          <strong class="text-black">{{ product.codigo }}</strong> - {{ product.description }}
-          (R$ {{ product.curso }})
-        </li>
-      </ul>
-    </div>
-  </main>
-</template> -->
-
 
 <template>
   <main class="min-h-screen bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-gray-300 dark:to-gray-400 dark:text-slate-100">
@@ -57,7 +69,11 @@ export default defineComponent({
 
       <div class="w-1/2">
 
-        <img src="../../../../imgstorage/logo/robustec.jpg" alt="" class="w-full h-full object-contain pb-2">
+        <v-btn
+          
+        >
+          <img src="../../../../imgstorage/logo/robustec.jpg" alt="Logo da Robustec" class="w-full h-full object-contain pb-2"></img>
+        </v-btn>
 
       </div>
 
@@ -76,6 +92,15 @@ export default defineComponent({
       
       <!-- título -->
       <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+
+      <input
+        v-model="search"
+        @input="onSearch"
+        type="text"
+        placeholder="Buscar produto por código..."
+        class="p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
+      >
+      </input>
 
       <!-- grid -->
       <div id="carros-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 justify-items-center w-full max-w-5xl">
@@ -98,7 +123,7 @@ export default defineComponent({
             <!-- Preço -->
             <div>
               <h1 class="text-zinc-800 text-sm">Código</h1>
-              <h1 class="text-zinc-700 font-bold text-2xl">{{ product.codigo }}</h1>
+              <h4 class="text-zinc-700 font-bold text-2xl">{{ product.codigo }}</h4>
             </div>
 
             <!-- Características -->
