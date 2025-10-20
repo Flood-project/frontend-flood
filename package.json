@@ -11,6 +11,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.12",
     "axios": "^1.11.0",
+    "js-query-pagination": "^1.0.7",
     "jwt-decode": "^4.0.0",
     "tailwindcss": "^4.1.12",
     "vue": "^3.5.18",
