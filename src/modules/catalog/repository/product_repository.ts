@@ -6,6 +6,11 @@ export const fetchProducts = async (): Promise<Product[]> => {
     return response.data
 }
 
+export const fetchById = async (id: number): Promise<Product> => {
+  const response = await instance.get<Product>(`/products/${id}`);
+  return response.data;
+}
+
 export async function deleteProductById(id: number) {
   const response = await instance.delete(`/products/${id}`);
   if (response.status != 200) throw new Error("Erro ao excluir produto");
