@@ -11,3 +11,9 @@ export interface Product {
     id_acionamento: number;
     id_base: number;
 } 
+
+export interface DetailedProduct extends Product {
+  tipoacionamento: string;
+  tipobucha: string;
+  tipobase: string;
+}
