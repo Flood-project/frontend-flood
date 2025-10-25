@@ -399,9 +399,37 @@ export default defineComponent({
       <!-- título -->
       <div class="flex justify-between items-center m-10 gap-x-10"> 
 
-        <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+        <div class="flex justify-start mt-10" >
+          <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950">Lista de Produtos</h2>
+          <div class="text-center">
+    <v-menu
+      open-on-hover
+    >
+      
+        <v-btn
+          color="primary"
+          v-bind="showAcionamentosDropdown"
+          class="w-60"
+        >
+          Dropdown
+        </v-btn>
+      
 
-        <button class="b-10 p-2 h-12 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-2" @click="openAddModal()">
+      <v-list>
+        <v-list-item
+          v-for="(item, index) in tipobucha"
+          :key="index"
+          :value="index"
+        >
+          <v-list-item-title>{{ item.title }}</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-menu>
+  </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button class="b-10 p-2 h-12 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-2" @click="openAddModal()">
 
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -409,6 +437,7 @@ export default defineComponent({
 
           
           Adicionar Produto</button>
+        </div>
 
       </div>
 
