@@ -49,3 +49,27 @@ export const withParams = async (options: Options = {}): Promise<ProductWithComp
   const response = await getWithPagination<ProductWithComponents[]>(`products/params`, options);
   return response
 }
+
+interface FilterParams {
+  tipo_bucha?: string
+  tipoacionamento?: string
+  tipobase?: string,
+  page?: number, 
+  limit?: number, 
+  search?: Record<string, any>,
+  total?: number,
+  equals?: Record<string, any>
+}
+
+export const filterWithParams = async (params: FilterParams): Promise<ProductWithComponents[]> => {
+  const response = await instance.get<ProductWithComponents[]>(`products/params`, {
+    params: {
+      [`eq[tipo_bucha]`]: params.tipo_bucha,
+      [`eq[tipoacionamento]`]: params.tipoacionamento,
+      [`eq[tipobase]`]: params.tipobase,
+      page: params.page ?? 1,
+      limit: params.limit ?? 10,
+    },
+  })
+  return response.data
+}

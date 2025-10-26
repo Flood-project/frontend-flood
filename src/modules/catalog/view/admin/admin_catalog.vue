@@ -5,10 +5,11 @@ import type { Base } from "../../domain/base";
 import type { Acionamento } from "../../domain/acionamento"; 
 import type { Bucha } from "../../domain/bucha"; 
 import { useRouter } from "vue-router";
-import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById } from "../../repository/product_repository";
+import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById, withParams, filterWithParams } from "../../repository/product_repository";
 import { fetchAcionamentoById, fetchAcionamentos, createAcionamento, deleteAcionamentoById } from "../../repository/acionamento_repository"
 import { fetchBuchaById, fetchBuchas, createBucha, deleteBuchaById } from "../../repository/bucha_repository"
 import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../repository/base_repository"
+import type { ProductWithComponents } from "../../domain/productWithComponents";
 
 
 export default defineComponent({
@@ -37,6 +38,18 @@ export default defineComponent({
     const selectedBase = ref<{ id: number; tipobase: string } | null>(null);
     const showBasesDropdown = ref(false);
     const baseSearchTerm = ref("");
+
+    const loading = ref(false);
+    const search = ref("");
+    const page = ref(1);
+    const limit = ref(10);
+    const total = ref(0)
+    let timeout: number | undefined
+    const filterBucha = ref("")
+    const filterAcionamento = ref("")
+    const filterBase = ref("")
+    const productsWithComponents = ref<ProductWithComponents[]>([])
+
 
     newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0};
 
@@ -296,6 +309,75 @@ export default defineComponent({
       }
     };
 
+    const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
+      loading.value = true;
+
+      if (loading.value) {
+        console.log('await loading');
+        
+      } 
+
+      try {
+        const data = await withParams({
+          page: 1,
+          limit: 10,
+          ...options
+        });
+        console.log(data);
+        products.value = data.products_with_params
+        page.value = data.page
+        limit.value = data.limit
+        return data.products_with_params
+      } catch (err) {
+        console.log("Erro ao listar com parâmetros, ", err)
+        return []
+      } finally {
+        loading.value = false;
+      }
+    }
+
+    const onSearch = () => {
+      clearTimeout(timeout);
+      timeout = window.setTimeout(() => {
+        productsWithParams({ search: search.value })
+      }, 400)
+    }
+
+    onMounted(async () => {
+      
+      products.value = await productsWithParams({page: page.value,  limit: limit.value})
+    });
+
+    const filterWithParamsHandler = async () => {
+      try {
+        loading.value = true;
+
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value,
+          tipoacionamento: filterAcionamento.value,
+          tipobase: filterBase.value,
+          page: 1,
+          limit: 10
+        })
+
+        if (response.products_with_params) {
+          products.value = response.products_with_params  
+        } else {
+          console.log('no products found');
+          
+        }
+
+        console.log(products.value);
+        
+      } catch (error) {
+        console.log(error);
+        
+      } finally {
+        loading.value = false;
+      }
+    }
+   
+
     return {
       product,
       products,
@@ -336,8 +418,18 @@ export default defineComponent({
       selectAcionamento,
       selectBase,
       selectBucha,
-      produtosCompletos
-
+      produtosCompletos,
+      total,
+      page,
+      limit,
+      onSearch,
+      productsWithParams,
+      loading,
+      search,
+      filterBucha,
+      filterWithParamsHandler,
+      filterAcionamento,
+      filterBase
     };
   },
 });
@@ -397,34 +489,19 @@ export default defineComponent({
     </header>
 
       <!-- título -->
-      <div class="flex justify-between items-center m-10 gap-x-10"> 
+      <div class="flex justify-between items-center m-10 gap-x-20"> 
 
         <div class="flex justify-start mt-10" >
           <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950">Lista de Produtos</h2>
           <div class="text-center">
-    <v-menu
-      open-on-hover
-    >
-      
-        <v-btn
-          color="primary"
-          v-bind="showAcionamentosDropdown"
-          class="w-60"
-        >
-          Dropdown
-        </v-btn>
-      
-
-      <v-list>
-        <v-list-item
-          v-for="(item, index) in tipobucha"
-          :key="index"
-          :value="index"
-        >
-          <v-list-item-title>{{ item.title }}</v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-menu>
+          <input
+            v-model="search"
+            @input="onSearch"
+            type="text"
+            placeholder="Buscar produto por código..."
+            class="ml-5 p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
+          >
+          </input>
   </div>
         </div>
 
@@ -439,6 +516,29 @@ export default defineComponent({
           Adicionar Produto</button>
         </div>
 
+      </div>
+        
+      <div class="flex flex-row mb-15 text-black text-lg gap-8">
+        <select class="select select-md select-ghost" v-model="filterBucha">
+          <option disabled value="">Tipo da bucha</option>
+          <option v-for="bucha in filteredBuchas">{{ bucha.tipobucha }}</option>
+        </select>
+       
+        
+
+        <select class="select select-md select-ghost" v-model="filterAcionamento">
+          <option disable value="">Tipo do acionamento</option>
+          <option v-for="acionamento in filteredAcionamentos">{{ acionamento.tipoacionamento }}</option>
+        </select>
+
+        <select class="select select-md select-ghost" v-model="filterBase">
+          <option disable value="">Tipo da base</option>
+          <option v-for="base in filteredBases">{{ base.tipobase }}</option>
+        </select>
+
+        <button @click="filterWithParamsHandler" class="flex p-2 hover:text-bold hover:bg-gray-500 hover:border-radius-20">
+          <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 376 384" class="mr-2"><path fill="#000000" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/></svg>
+        Filtrar</button>
       </div>
 
       <!-- grid -->
