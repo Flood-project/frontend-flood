@@ -36,7 +36,7 @@ const router = createRouter({
             }
         },
         {
-            path: '/testlogin',
+            path: '/',
             name: 'logintest',
             component: LoginTestPage
         },
@@ -44,7 +44,7 @@ const router = createRouter({
             path: '/catalogo',
             name: 'catalogo',
             component: Home_catalog,
-            meta: { requiresAuth: true, role: 1} //apenas grupo usuário 1 com token pode acessar a rota
+            meta: { requiresAuth: true, role: 2} //apenas grupo usuário 1 com token pode acessar a rota
         },
         {
             path: '/admin/catalog',

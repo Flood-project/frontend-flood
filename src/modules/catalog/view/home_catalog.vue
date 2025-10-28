@@ -1,7 +1,13 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from "vue";
-import { fetchWithComponents, withParams } from "../repository/product_repository";
+import { filterWithParams, withParams } from "../repository/product_repository";
 import type { ProductWithComponents } from "../domain/productWithComponents";
+import type { Bucha } from "../../bucha/domain/bucha_domain";
+import { fetchBuchas } from "../../bucha/repository/bucha_repository";
+import type { Acionamento } from "../../acionamento/domain/acionamento_domain";
+import { fetchAcionamentos } from "../repository/acionamento_repository";
+import type { Base } from "../../base/domain/base_domain";
+import { fetchBases } from "../../base/repository/base_repository";
 
 
 export default defineComponent({
@@ -13,6 +19,54 @@ export default defineComponent({
     const loading = ref(false);
     const search = ref("");
     let timeout: number | undefined
+    const filterBucha = ref("")
+    const filterAcionamento = ref("")
+    const filterBase = ref("")
+    const buchas = ref<Bucha[]>([])
+    const acionamentos = ref<Acionamento[]>([])
+    const bases = ref<Base[]>([])
+    
+    const getBuchas = async (): Promise<Bucha[]> => {
+      try {
+        loading.value = true
+
+        const response = await fetchBuchas()
+        return buchas.value = response
+      } catch(error) {
+        console.log(error);
+        return []
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const getAcionamentos = async (): Promise<Acionamento[]> => {
+      try {
+        loading.value = true
+
+        const response = await fetchAcionamentos()
+        return acionamentos.value = response
+      } catch(error) {
+        console.log(error);
+        return []
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const getBases = async (): Promise<Base[]> => {
+      try {
+        loading.value = true
+
+        const response = await fetchBases()
+        return bases.value = response
+      } catch(error) {
+        console.log(error);
+        return []
+      } finally {
+        loading.value = false
+      }
+    }
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
       loading.value = true;
@@ -46,7 +100,39 @@ export default defineComponent({
     onMounted(async () => {
       
       products.value = await productsWithParams({page: page.value,  limit: limit.value})
+      getBuchas()
+      getAcionamentos()
+      getBases()
     });
+
+    const filterWithParamsHandler = async () => {
+      try {
+        loading.value = true;
+
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value,
+          tipoacionamento: filterAcionamento.value,
+          tipobase: filterBase.value,
+          page: 1,
+          limit: 10
+        })
+
+        if (response.products_with_params) {
+          products.value = response.products_with_params  
+        } else {
+          console.log('no products found');
+          
+        }
+
+        console.log(products.value);
+        
+      } catch (error) {
+        console.log(error);
+        
+      } finally {
+        loading.value = false;
+      }
+    }
 
     return {
       products,
@@ -56,7 +142,15 @@ export default defineComponent({
       search,
       loading,
       productsWithParams,
-      onSearch
+      onSearch,
+      filterBucha,
+      filterWithParamsHandler,
+      filterAcionamento,
+      filterBase,
+      getBuchas,
+      buchas,
+      acionamentos,
+      bases
     };
   },
 });
@@ -101,6 +195,27 @@ export default defineComponent({
         class="p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
       >
       </input>
+
+      <div class="flex flex-row mb-15 text-black text-lg gap-8">
+        <select class="select select-md select-ghost" v-model="filterBucha">
+          <option disabled value="">Tipo da bucha</option>
+          <option v-for="bucha in buchas" :value="bucha.tipobucha">{{ bucha.tipobucha }}</option>
+        </select>
+       
+        <select class="select select-md select-ghost" v-model="filterAcionamento">
+          <option disable value="">Tipo do acionamento</option>
+          <option v-for="acionamento in acionamentos">{{ acionamento.tipoacionamento }}</option>
+        </select>
+
+        <select class="select select-md select-ghost" v-model="filterBase">
+          <option disable value="">Tipo da base</option>
+          <option v-for="base in bases">{{ base.tipobase }}</option>
+        </select>
+
+        <button @click="filterWithParamsHandler" class="flex p-2 hover:text-bold hover:bg-gray-500 hover:border-radius-20">
+          <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 376 384" class="mr-2"><path fill="#000000" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/></svg>
+        Filtrar</button>
+      </div>
 
       <!-- grid -->
       <div id="carros-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 justify-items-center w-full max-w-5xl">

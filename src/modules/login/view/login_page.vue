@@ -29,8 +29,9 @@ export default defineComponent({
 </script>
 
 <template>
-  <div class="w-full flex justify-center">
-    <div
+  <div class="w-full flex justify-center align-center">
+    <h4>no access</h4>
+    <!-- <div
       class="flex flex-col items-start w-80 bg-blue-400 rounded-lg mt-10 p-6"
     >
       <h2 class="mb-4 text-2xl font-bold text-white self-center">Login</h2>
@@ -59,6 +60,6 @@ export default defineComponent({
       >
         Entrar
       </button>
-    </div>
+    </div> -->
   </div>
 </template>

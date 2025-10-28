@@ -7,9 +7,10 @@ import type { Bucha } from "../../domain/bucha";
 import { useRouter } from "vue-router";
 import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById, withParams, filterWithParams } from "../../repository/product_repository";
 import { fetchAcionamentoById, fetchAcionamentos, createAcionamento, deleteAcionamentoById } from "../../repository/acionamento_repository"
-import { fetchBuchaById, fetchBuchas, createBucha, deleteBuchaById } from "../../repository/bucha_repository"
+import { fetchBuchas, createBucha, deleteBuchaById } from "../../../bucha/repository/bucha_repository"
 import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../repository/base_repository"
 import type { ProductWithComponents } from "../../domain/productWithComponents";
+import { removeAccessTokens } from "../../../../services/token";
 
 
 export default defineComponent({
