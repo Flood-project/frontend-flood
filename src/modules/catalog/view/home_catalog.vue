@@ -1,18 +1,37 @@
 <script lang="ts">
-import { defineComponent, ref, onMounted } from "vue";
-import { fetchWithComponents, withParams } from "../repository/product_repository";
+import { defineComponent, ref, onMounted, computed } from "vue";
+import { fetchProducts, fetchWithComponents, withParams, fetchById } from "../repository/product_repository";
 import type { ProductWithComponents } from "../domain/productWithComponents";
+import type { Product, DetailedProduct } from "../domain/product";
+import { fetchAcionamentoById, fetchAcionamentos, createAcionamento, deleteAcionamentoById } from "../../catalog/repository/acionamento_repository"
+import { fetchBuchaById, fetchBuchas, createBucha, deleteBuchaById } from "../../catalog/repository/bucha_repository"
+import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../catalog/repository/base_repository"
 
 
 export default defineComponent({
   setup() {
-    const products = ref<ProductWithComponents[]>([]);
+    const products = ref<Product[]>([]);
     const total = ref(0);
     const page = ref(1)
     const limit = ref(10);
     const loading = ref(false);
     const search = ref("");
     let timeout: number | undefined
+
+    const images = ref([
+      "../../../../imgstorage/testes/ral.jpg",
+      "../../../../imgstorage/testes/ral2.jpg",
+      "../../../../imgstorage/testes/ral3.jpg",
+    ]);
+
+    // Imagem principal exibida no topo
+    const selectedImage = ref(images.value[0]);
+
+
+    const acionamentos = ref<{ id: number; tipoacionamento: string }[]>([]);
+    const fetchedProduct = ref<DetailedProduct | null>(null);
+    const buchas = ref< { id: number; tipobucha: string } []>([]);
+    const bases = ref< { id: number; tipobase: string } []>([]);
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
       loading.value = true;
@@ -36,6 +55,54 @@ export default defineComponent({
       }
     }
 
+    const acionamentoMap = computed<Record<number, string>>(() => {
+      const map: Record<number, string> = {};
+      acionamentos.value.forEach(a => map[a.id] = a.tipoacionamento);
+      return map;
+    });
+
+    const buchaMap = computed<Record<number, string>>(() => {
+      const map: Record<number, string> = {};
+      buchas.value.forEach(a => map[a.id] = a.tipobucha);
+      return map;
+    });
+
+    const baseMap = computed<Record<number, string>>(() => {
+      const map: Record<number, string> = {};
+      bases.value.forEach(a => map[a.id] = a.tipobase);
+      return map;
+    });
+
+    const produtosCompletos = computed(() =>
+      products.value.map(p => ({
+        ...p,
+        tipoacionamento: acionamentoMap.value[p.id_acionamento] || 'Desconhecido',
+        tipobucha: buchaMap.value[p.id_bucha] || 'Desconhecido',
+        tipobase: baseMap.value[p.id_base] || 'Desconhecido',
+      }))
+    );
+
+    const isProductDetailsOpen = ref (false);
+
+    const showProductDetails = async (p: Product) => {
+
+      isProductDetailsOpen.value = true;
+
+      console.log(fetchedProduct);
+
+      const response = await fetchById(p.id); 
+
+      fetchedProduct.value = {
+      ...response,
+      tipoacionamento: acionamentoMap.value[response.id_acionamento] || "Desconhecido",
+      tipobucha: buchaMap.value[response.id_bucha] || "Desconhecido",
+      tipobase: baseMap.value[response.id_base] || "Desconhecido",
+      }
+    }
+
+
+    const product = ref<Product>();
+
     const onSearch = () => {
       clearTimeout(timeout);
       timeout = window.setTimeout(() => {
@@ -44,7 +111,10 @@ export default defineComponent({
     }
 
     onMounted(async () => {
-      
+      products.value = await fetchProducts();
+      acionamentos.value = await fetchAcionamentos();
+      buchas.value = await fetchBuchas();
+      bases.value = await fetchBases();
       products.value = await productsWithParams({page: page.value,  limit: limit.value})
     });
 
@@ -56,7 +126,14 @@ export default defineComponent({
       search,
       loading,
       productsWithParams,
-      onSearch
+      onSearch,
+      produtosCompletos,
+      fetchProducts,
+      fetchedProduct,
+      showProductDetails,
+      isProductDetailsOpen,
+      images,
+      selectedImage
     };
   },
 });
@@ -69,19 +146,15 @@ export default defineComponent({
 
       <div class="w-1/2">
 
-        <v-btn
-          
-        >
-          <img src="../../../../imgstorage/logo/robustec.jpg" alt="Logo da Robustec" class="w-full h-full object-contain pb-2"></img>
-        </v-btn>
+        <img src="../../../../../imgstorage/logo/robustec.jpg" alt="" class="w-full h-full object-contain pb-2 ml-auto">
 
       </div>
 
-      <div class="w-2/5">
+      <div class="w-2/5 flex justify-end items-center gap-8 text-white mr-auto">
 
-        <h1>Seja bem-vindo </h1>
+        <h1 class="">Produtos</h1>
 
-        <button>Logout</button>
+        <button class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700">Logout</button>
 
       </div>
 
@@ -106,7 +179,7 @@ export default defineComponent({
       <div id="carros-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 justify-items-center w-full max-w-5xl">
         
         <!-- card exemplo -->
-        <div v-for="product in products" :key="product.id"
+        <div v-for="product in produtosCompletos" :key="product.id"
           class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
         >
           <!-- Foto -->
@@ -117,7 +190,7 @@ export default defineComponent({
             <!-- Tipo e nome -->
             <div>
               <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.id_acionamento }}</h1>
+              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.tipoacionamento }}</h1>
             </div>
 
             <!-- Preço -->
@@ -135,7 +208,7 @@ export default defineComponent({
             </div> -->
 
             <!-- Botão -->
-            <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-gray-900 text-white font-bold text-lg">
+            <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-gray-900 text-white font-bold text-lg hover:cursor-pointer" @click="showProductDetails(product)">
               Ver detalhes
             </button>
           </div>
@@ -144,6 +217,97 @@ export default defineComponent({
         <!-- Repita o card ou use v-for -->
         
       </div>
+
+
+      <div
+          v-if="isProductDetailsOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
+        >
+          <div class="bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[90%] max-h-[%90] p-20">
+
+            <div class="grid grid-cols-2 gap-4">
+        
+            <!-- Coluna da esquerda: imagens -->
+            <div class="grid grid-rows-2 h-[90%] w-full gap-4">
+              
+              <!-- Imagem principal -->
+              <div class="h-full flex justify-start">
+                <img
+                  :src="selectedImage"
+                  alt="Imagem principal"
+                  class="h-full object-fill rounded transition-all duration-300"
+                />
+              </div>
+
+              <!-- Miniaturas -->
+              <div class="grid grid-cols-3 gap-4 h-full w-4/5">
+                <img
+                  v-for="(img, index) in images"
+                  :key="index"
+                  :src="img"
+                  alt="Miniatura"
+                  class="w-full h-auto object-contain rounded cursor-pointer border-2"
+                  :class="selectedImage === img ? 'border-emerald-700' : 'border-transparent'"
+                  @click="selectedImage = img"
+                />
+              </div>
+            </div>
+
+              
+              <!-- Coluna do Formulário -->
+              <div class="flex flex-col justify-start">
+                <!-- Campos -->
+                <div class="space-y-4">
+                  
+                  <div>
+                    <h1 class="w-full font-fira text-emerald-900 text-2xl font-bold">Pé de Apoio {{ fetchedProduct?.capacidade_estatica }} Kg Acionamento {{ fetchedProduct?.tipoacionamento }} {{ fetchedProduct?.codigo }}</h1>
+                  </div>
+
+                  <div class="mt-10">
+                      <h1 class="w-full font-fira text-gray-600 text-md">{{ fetchedProduct?.description }}</h1>
+                  </div>
+
+                  <div class="mt-10 space-y-4">
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-600 text-md">* Capacidade: {{ fetchedProduct?.capacidade_estatica }} kg</h1>
+                  </div>
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-600 text-md">* Base: {{ fetchedProduct?.tipobase }}</h1>
+                  </div>
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-600 text-md">* Bucha de fixação: {{ fetchedProduct?.tipobucha }}</h1>
+                  </div>
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-600 text-md">* Acionamento: {{ fetchedProduct?.tipoacionamento }}</h1>
+                  </div>
+
+                  </div>
+
+
+
+                </div>
+
+                <!-- Botões -->
+                <div class="flex justify-end gap-3 mt-6">
+                  <button @click="isProductDetailsOpen = false"
+                          class="px-5 py-2 rounded-lg bg-gray-400 text-black font-semibold hover:bg-gray-500 hover:cursor-pointer shadow">
+                    Sair
+                  </button>
+                </div>
+
+            </div>
+
+            </div>
+
+            </div>
+
+            <!-- -->
+
+          </div>
 
       <footer class="bg-white dark:bg-emerald-950 text-black dark:text-white w-full mt-10">
         <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col items-center space-y-6">
