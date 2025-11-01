@@ -409,7 +409,7 @@ export default defineComponent({
 
           <button
             @click="toggleAddMenu"
-            class="hover:cursor-pointer"
+            class="hover:cursor-pointer hover:bg-emerald-800 p-2 rounded-xl"
           >
             Adicionar
           </button>
@@ -443,27 +443,41 @@ export default defineComponent({
       <!-- título -->
       <div class="flex justify-between items-center m-10 gap-x-10"> 
 
-        <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+        <h2 class="mb-5 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
 
-        <button class="b-10 p-2 h-12 bg-emerald-900 text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-2" @click="openAddModal()">
+        <!-- <button class="b-10 p-2 h-12 bg-emerald-900 font-semibold text-white-900 rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex space-x-2 gap-3 p-3" @click="openAddModal()">
 
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 font-semibold">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
 
+
           
-          Adicionar Produto</button>
+          Adicionar Produto</button> -->
 
       </div>
 
-      <input
-        v-model="search"
-        @input="onSearch"
-        type="text"
-        placeholder="Buscar produto por código..."
-        class="p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
-      >
-      </input>
+      <div class="flex justify-between items-center mb-10 gap-x-10">
+
+        <input
+          v-model="search"
+          @input="onSearch"
+          type="text"
+          placeholder="Buscar produto por código..."
+          class="p-3 rounded-lg w-80 bg-white text-black font-bold"
+        />
+
+        <button
+          @click="openAddModal()"
+          class="h-12 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 p-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          Novo Produto
+        </button>
+
+      </div>
 
       <!-- grid -->
       <div id="produtos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center  max-w-7xl">
@@ -534,290 +548,315 @@ export default defineComponent({
           </div>
         </div>
 
-        <!-- Modal editar -->
         <div
           v-if="isEditModalOpen"
-          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
         >
-          <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl">
-            <h3 class="text-lg font-semibold mb-4 text-white">Editar Produto</h3>
+          <div class="relative bg-emerald-900 p-8 rounded-xl shadow-lg w-[95%] max-w-5xl">
+            <h3 class="text-2xl font-semibold mb-4">Editar Produto</h3>
 
-            <!-- Grid responsiva -->
+            <button
+                  @click="isEditModalOpen = false"
+                  class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                    class="w-7 h-7"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+            <!-- Container do formulário -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Código</label>
-                <input
-                  v-model="editingProduct!.codigo"
-                  type="text"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
+              <!-- Coluna 1 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Código</label>
+                  <input
+                    v-model="editingProduct!.codigo"
+                    type="text"
+                    placeholder="Insira o código do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+
+                <div class="flex flex-col gap-0.5 items-strech mb-2">
+                  <h1 class="block text-sm font-medium mb-1">Acionamento</h1>
+                  <div class="flex items-center border rounded bg-emerald-950 relative mb-1.5"> 
+                    <input
+                      v-model="acionamentoSearchTerm"
+                      type="text"
+                      placeholder="Escolha o acionamento"
+                      class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
+                      @focus="showAcionamentosDropdown = true"
+                      @click.stop
+                    />
+
+                    <button
+                      class="p-2 text-white rounded-r transition hover:cursor-pointer" @click="acionamentoSearchTerm = '' "
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+
+                    </button>
+
+                    <button
+                      class="p-2 text-white bg-emerald-900 hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddAcionamentoModalOpen = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+
+                    </button>
+
+                    <ul
+                      v-if="showAcionamentosDropdown"
+                      class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
+                      @click.stop
+                    >
+                      <li
+                        v-for="a in filteredAcionamentos"
+                        :key="a.id"
+                        @mousedown.prevent="selectAcionamento(a)"
+                        @click="selectAcionamento(a)"
+                        class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
+                      >
+                        {{ a.tipoacionamento }}
+                      </li>
+                      <li
+                        v-if="filteredAcionamentos.length === 0"
+                        class="px-3 py-1 text-gray-300 italic"
+                      >
+                        Nenhum acionamento encontrado
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <!-- <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Capacidade Estática (KG)</label>
+                  <input
+                    v-model="newProduct!.capacidade_estatica"
+                    type="number"
+                    placeholder="Insira a capacidade estática do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div> -->
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Curso (mm)</label>
+                  <input
+                    v-model="newProduct!.curso"
+                    type="number"
+                    placeholder="Insira o curso do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Descrição</label>
-                <input
+              <!-- Coluna 2 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Capacidade de Trabalho (KG)</label>
+                  <input
+                    v-model="editingProduct!.capacidade_trabalho"
+                    type="number"
+                    placeholder="Insira a capacidade de trabalho do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+                <!-- <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Redução</label>
+                  <input
+                    v-model="newProduct!.reducao"
+                    type="text"
+                    placeholder="Insira a redução do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div> -->
+
+                <div class="flex flex-col gap-0.5 items-strech mb-2">
+                  <h1 class="block text-sm font-medium mb-1">Bucha</h1>
+                  <div class="flex items-center border rounded bg-emerald-950 relative mb-1.5"> 
+                    <input
+                      v-model="buchaSearchTerm"
+                      type="text"
+                      placeholder="Escolha a bucha"
+                      class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
+                      @focus="showBuchasDropdown = true"
+                      @click.stop
+                    />
+
+                    <button
+                      class="p-2 text-white rounded-r transition hover:cursor-pointer" @click="buchaSearchTerm = '' "
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+
+                    </button>
+
+                    <button
+                      class="p-2 text-white bg-emerald-900 hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBuchaModalOpen = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+
+                    </button>
+
+                    <ul
+                      v-if="showBuchasDropdown"
+                      class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
+                      @click.stop
+                    >
+                      <li
+                        v-for="a in filteredBuchas"
+                        :key="a.id"
+                        @mousedown.prevent="selectBucha(a)"
+                        @click="selectBucha(a)"
+                        class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
+                      >
+                        {{ a.tipobucha }}
+                      </li>
+                      <li
+                        v-if="filteredBuchas.length === 0"
+                        class="px-3 py-1 text-gray-300 italic"
+                      >
+                        Nenhuma bucha encontrado
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Altura da Bucha (mm)</label>
+                  <input
+                    v-model="editingProduct!.altura_bucha"
+                    type="number"
+                    placeholder="Insira a altura da bucha"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+              </div>
+
+              <!-- Coluna 3 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Capacidade Estática (KG)</label>
+                  <input
+                    v-model="editingProduct!.capacidade_estatica"
+                    type="number"
+                    placeholder="Insira a capacidade estática do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+                <!-- Selecionar bucha -->
+                <div class="flex flex-col gap-0.5 items-strech mb-3.5">
+                  <h1 class="block text-sm font-medium mb-1">Base</h1>
+                  <div class="flex items-center border rounded bg-emerald-950 relative"> 
+                    <input
+                      v-model="baseSearchTerm"
+                      type="text"
+                      placeholder="Escolha a base"
+                      class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
+                      @focus="showBasesDropdown = true"
+                      @click.stop
+                    />
+
+                    <button
+                      class="p-2 text-white rounded-r transition hover:cursor-pointer" @click="baseSearchTerm = '' "
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+
+
+                    </button>
+
+                    <button
+                      class="p-2 text-white bg-emerald-900 hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBaseModalOpen = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+
+                    </button>
+
+                    <ul
+                      v-if="showBasesDropdown"
+                      class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
+                      @click.stop
+                    >
+                      <li
+                        v-for="a in filteredBases"
+                        :key="a.id"
+                        @mousedown.prevent="selectBase(a)"
+                        @click="selectBase(a)"
+                        class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
+                      >
+                        {{ a.tipobase }}
+                      </li>
+                      <li
+                        v-if="filteredBases.length === 0"
+                        class="px-3 py-1 text-gray-300 italic"
+                      >
+                        Nenhuma base encontrada
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Redução</label>
+                  <input
+                    v-model="editingProduct!.reducao"
+                    type="text"
+                    placeholder="Insira a redução do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+
+              </div>
+            </div>
+
+            <!-- Linha inferior com curso + botões -->
+            <div class="grid grid-cols-2 items-center mt-4 gap-3">
+              <!-- Campo curso à esquerda -->
+              <div class="col-span-2">
+                <label class="block text-sm font-medium mb-1">Descrição</label>
+                <textarea
                   v-model="editingProduct!.description"
-                  type="text"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
+                  placeholder="Insira a descrição do produto"
+                  class="w-full border rounded px-3 py-2 bg-emerald-950 text-white resize-y min-h-[100px]"
+                ></textarea>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Capacidade Estática (KG)</label>
-                <input
-                  v-model="editingProduct!.capacidade_estatica"
-                  type="number"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Capacidade de Trabalho (KG)</label>
-                <input
-                  v-model="editingProduct!.capacidade_trabalho"
-                  type="number"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Redução</label>
-                <input
-                  v-model="editingProduct!.reducao"
-                  type="text"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Altura da bucha (mm)</label>
-                <input
-                  v-model="editingProduct!.altura_bucha"
-                  type="number"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
-              </div>
-
-              <!-- Selecionar bucha -->
-             <div class="flex flex-col gap-0.5 items-strech">
-              <h1 class="block text-sm font-medium mb-1">Bucha</h1>
-              <div class="flex items-center border rounded bg-emerald-950 relative"> 
-                <input
-                  v-model="buchaSearchTerm"
-                  type="text"
-                  class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
-                  @focus="showBuchasDropdown = true"
-                  @click.stop
-                />
-
+              <!-- Botões à direita -->
+              <div class="col-span-2 flex justify-end gap-2">
                 <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="buchaSearchTerm = '' "
+                  @click="isEditModalOpen = false"
+                  class="px-4 py-2 rounded bg-gray-500 hover:bg-gray-400 hover:cursor-pointer"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 stroke-current text-red-700">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-
+                  Cancelar
                 </button>
-
                 <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBuchaModalOpen = true"
+                  @click="editProduct(editingProduct), isEditModalOpen = false"
+                  class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
-                  </svg>
+                  Salvar
                 </button>
-
-                <ul
-                  v-if="showBuchasDropdown"
-                  class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
-                  @click.stop
-                >
-                  <li
-                    v-for="a in filteredBuchas"
-                    :key="a.id"
-                    @mousedown.prevent="selectBucha(a)"
-                    @click="selectBucha(a)"
-                    class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
-                  >
-                    {{ a.tipobucha }}
-                  </li>
-                  <li
-                    v-if="filteredBuchas.length === 0"
-                    class="px-3 py-1 text-gray-300 italic"
-                  >
-                    Nenhuma bucha encontrada
-                  </li>
-                </ul>
-
               </div>
-            </div>
-
-              <!-- Selecionar base -->
-             <div class="flex flex-col gap-0.5 items-strech">
-              <h1 class="block text-sm font-medium mb-1">Base</h1>
-              <div class="flex items-center border rounded bg-emerald-950 relative"> 
-                <input
-                  v-model="baseSearchTerm"
-                  type="text"
-                  class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
-                  @focus="showBasesDropdown = true"
-                  @click.stop
-                />
-
-                <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="baseSearchTerm = '' "
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 stroke-current text-red-700">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-
-                </button>
-
-                <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBaseModalOpen = true"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
-                  </svg>
-                </button>
-
-                <ul
-                  v-if="showBasesDropdown"
-                  class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
-                  @click.stop
-                >
-                  <li
-                    v-for="a in filteredBases"
-                    :key="a.id"
-                    @mousedown.prevent="selectBase(a)"
-                    @click="selectBase(a)"
-                    class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
-                  >
-                    {{ a.tipobase }}
-                  </li>
-                  <li
-                    v-if="filteredBases.length === 0"
-                    class="px-3 py-1 text-gray-300 italic"
-                  >
-                    Nenhuma base encontrada
-                  </li>
-                </ul>
-
-              </div>
-            </div>
-
-               <!-- Selecionar acionamento -->
-             <div class="flex flex-col gap-0.5 items-strech">
-              <h1 class="block text-sm font-medium mb-1">Acionamento</h1>
-              <div class="flex items-center border rounded bg-emerald-950 relative"> 
-                <input
-                  v-model="acionamentoSearchTerm"
-                  type="text"
-                  class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
-                  @focus="showAcionamentosDropdown = true"
-                  @click.stop
-                />
-
-                <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="acionamentoSearchTerm = '' "
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 stroke-current text-red-700">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-
-                </button>
-
-                <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddAcionamentoModalOpen = true"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
-                  </svg>
-                </button>
-
-                <ul
-                  v-if="showAcionamentosDropdown"
-                  class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
-                  @click.stop
-                >
-                  <li
-                    v-for="a in filteredAcionamentos"
-                    :key="a.id"
-                    @mousedown.prevent="selectAcionamento(a)"
-                    @click="selectAcionamento(a)"
-                    class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
-                  >
-                    {{ a.tipoacionamento }}
-                  </li>
-                  <li
-                    v-if="filteredAcionamentos.length === 0"
-                    class="px-3 py-1 text-gray-300 italic"
-                  >
-                    Nenhum acionamento encontrado
-                  </li>
-                </ul>
-
-              </div>
-            </div>
-            </div>
-
-            <!-- Campo isolado -->
-            <div class="mb-3 mt-4">
-              <label class="block text-sm font-medium text-white">Curso (mm)</label>
-              <input
-                v-model="editingProduct!.curso"
-                type="number"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-
-            <!-- Botões -->
-            <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
-              <button
-                @click="isEditModalOpen = false"
-                class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-black hover:cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                @click="editProduct(editingProduct), isEditModalOpen = false"
-                class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
-              >
-                Salvar
-              </button>
             </div>
           </div>
         </div>
@@ -826,7 +865,19 @@ export default defineComponent({
           v-if="isProductDetailsOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
         >
-          <div class="bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[90%] max-h-[%90] p-20">
+          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[60%] max-h-[%90] p-20">
+
+            <button
+              @click="isProductDetailsOpen = false"
+              class="absolute top-4 right-4 text-gray-700 transition-colors p-3 hover:cursor-pointer hover:bg-gray-400 rounded-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                class="w-7 h-7"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
 
             <!-- Grid responsiva -->
             <div class="grid grid-cols-2 gap-4">
@@ -890,14 +941,6 @@ export default defineComponent({
 
                 </div>
 
-                <!-- Botões -->
-                <div class="flex justify-end gap-3 mt-6">
-                  <button @click="isProductDetailsOpen = false"
-                          class="px-5 py-2 rounded-lg bg-gray-400 text-black font-semibold hover:bg-gray-500 hover:cursor-pointer shadow">
-                    Sair
-                  </button>
-                </div>
-
             </div>
 
             </div>
@@ -910,286 +953,317 @@ export default defineComponent({
 
 
         <div
-      v-if="isAddModalOpen"
-      class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
-    >
-      <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl w-1/2">
-        <h3 class="text-lg font-semibold mb-4">Adicionar Produto</h3>
+          v-if="isAddModalOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
+        >
+          <div class="relative bg-emerald-900 p-8 rounded-xl shadow-lg w-[95%] max-w-5xl">
+            <h3 class="text-2xl font-semibold mb-4">Novo Produto</h3>
 
-        <!-- Container do formulário -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <!-- Coluna 1 -->
-          <div>
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Código</label>
-              <input
-                v-model="newProduct!.codigo"
-                type="text"
-                placeholder="Insira o código do produto"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Descrição</label>
-              <input
-                v-model="newProduct!.description"
-                type="text"
-                placeholder="Insira a descrição do produto"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Capacidade Estática (KG)</label>
-              <input
-                v-model="newProduct!.capacidade_estatica"
-                type="number"
-                placeholder="Insira a capacidade estática do produto"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-          </div>
-
-          <!-- Coluna 2 -->
-          <div>
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Capacidade de Trabalho (KG)</label>
-              <input
-                v-model="newProduct!.capacidade_trabalho"
-                type="number"
-                placeholder="Insira a capacidade de trabalho do produto"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Redução</label>
-              <input
-                v-model="newProduct!.reducao"
-                type="text"
-                placeholder="Insira a redução do produto"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Altura da Bucha (mm)</label>
-              <input
-                v-model="newProduct!.altura_bucha"
-                type="number"
-                placeholder="Insira a altura da bucha"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
-          </div>
-
-          <!-- Coluna 3 -->
-          <div class="flex flex-col gap-1">
-            <div class="flex flex-col gap-0.5 items-strech">
-              <h1 class="block text-sm font-medium mb-1">Acionamento</h1>
-              <div class="flex items-center border rounded bg-emerald-950 relative"> 
-                <input
-                  v-model="acionamentoSearchTerm"
-                  type="text"
-                  placeholder="Escolha o acionamento"
-                  class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
-                  @focus="showAcionamentosDropdown = true"
-                  @click.stop
-                />
-
-                <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddAcionamentoModalOpen = true"
+            <button
+                  @click="isAddModalOpen = false"
+                  class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5"
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                    class="w-7 h-7"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
 
-                <ul
-                  v-if="showAcionamentosDropdown"
-                  class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
-                  @click.stop
-                >
-                  <li
-                    v-for="a in filteredAcionamentos"
-                    :key="a.id"
-                    @mousedown.prevent="selectAcionamento(a)"
-                    @click="selectAcionamento(a)"
-                    class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
-                  >
-                    {{ a.tipoacionamento }}
-                  </li>
-                  <li
-                    v-if="filteredAcionamentos.length === 0"
-                    class="px-3 py-1 text-gray-300 italic"
-                  >
-                    Nenhum acionamento encontrado
-                  </li>
-                </ul>
+            <!-- Container do formulário -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <!-- Coluna 1 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Código</label>
+                  <input
+                    v-model="newProduct!.codigo"
+                    type="text"
+                    placeholder="Insira o código do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+
+                <div class="flex flex-col gap-0.5 items-strech mb-2">
+                  <h1 class="block text-sm font-medium mb-1">Acionamento</h1>
+                  <div class="flex items-center border rounded bg-emerald-950 relative mb-1.5"> 
+                    <input
+                      v-model="acionamentoSearchTerm"
+                      type="text"
+                      placeholder="Escolha o acionamento"
+                      class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
+                      @focus="showAcionamentosDropdown = true"
+                      @click.stop
+                    />
+
+                    <button
+                      class="p-2 text-white rounded-r transition hover:cursor-pointer" @click="acionamentoSearchTerm = '' "
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+
+                    </button>
+
+                    <button
+                      class="p-2 text-white bg-emerald-900 hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddAcionamentoModalOpen = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+
+                    </button>
+
+                    <ul
+                      v-if="showAcionamentosDropdown"
+                      class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
+                      @click.stop
+                    >
+                      <li
+                        v-for="a in filteredAcionamentos"
+                        :key="a.id"
+                        @mousedown.prevent="selectAcionamento(a)"
+                        @click="selectAcionamento(a)"
+                        class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
+                      >
+                        {{ a.tipoacionamento }}
+                      </li>
+                      <li
+                        v-if="filteredAcionamentos.length === 0"
+                        class="px-3 py-1 text-gray-300 italic"
+                      >
+                        Nenhum acionamento encontrado
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <!-- <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Capacidade Estática (KG)</label>
+                  <input
+                    v-model="newProduct!.capacidade_estatica"
+                    type="number"
+                    placeholder="Insira a capacidade estática do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div> -->
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Curso (mm)</label>
+                  <input
+                    v-model="newProduct!.curso"
+                    type="number"
+                    placeholder="Insira o curso do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+              </div>
+
+              <!-- Coluna 2 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Capacidade de Trabalho (KG)</label>
+                  <input
+                    v-model="newProduct!.capacidade_trabalho"
+                    type="number"
+                    placeholder="Insira a capacidade de trabalho do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+                <!-- <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Redução</label>
+                  <input
+                    v-model="newProduct!.reducao"
+                    type="text"
+                    placeholder="Insira a redução do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div> -->
+
+                <div class="flex flex-col gap-0.5 items-strech mb-2">
+                  <h1 class="block text-sm font-medium mb-1">Bucha</h1>
+                  <div class="flex items-center border rounded bg-emerald-950 relative mb-1.5"> 
+                    <input
+                      v-model="buchaSearchTerm"
+                      type="text"
+                      placeholder="Escolha a bucha"
+                      class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
+                      @focus="showBuchasDropdown = true"
+                      @click.stop
+                    />
+
+                    <button
+                      class="p-2 text-white rounded-r transition hover:cursor-pointer" @click="buchaSearchTerm = '' "
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+
+                    </button>
+
+                    <button
+                      class="p-2 text-white bg-emerald-900 hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBuchaModalOpen = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+
+                    </button>
+
+                    <ul
+                      v-if="showBuchasDropdown"
+                      class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
+                      @click.stop
+                    >
+                      <li
+                        v-for="a in filteredBuchas"
+                        :key="a.id"
+                        @mousedown.prevent="selectBucha(a)"
+                        @click="selectBucha(a)"
+                        class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
+                      >
+                        {{ a.tipobucha }}
+                      </li>
+                      <li
+                        v-if="filteredBuchas.length === 0"
+                        class="px-3 py-1 text-gray-300 italic"
+                      >
+                        Nenhuma bucha encontrado
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Altura da Bucha (mm)</label>
+                  <input
+                    v-model="newProduct!.altura_bucha"
+                    type="number"
+                    placeholder="Insira a altura da bucha"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+              </div>
+
+              <!-- Coluna 3 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Capacidade Estática (KG)</label>
+                  <input
+                    v-model="newProduct!.capacidade_estatica"
+                    type="number"
+                    placeholder="Insira a capacidade estática do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
+                <!-- Selecionar bucha -->
+                <div class="flex flex-col gap-0.5 items-strech mb-3.5">
+                  <h1 class="block text-sm font-medium mb-1">Base</h1>
+                  <div class="flex items-center border rounded bg-emerald-950 relative"> 
+                    <input
+                      v-model="baseSearchTerm"
+                      type="text"
+                      placeholder="Escolha a base"
+                      class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
+                      @focus="showBasesDropdown = true"
+                      @click.stop
+                    />
+
+                    <button
+                      class="p-2 text-white rounded-r transition hover:cursor-pointer" @click="baseSearchTerm = '' "
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+
+
+                    </button>
+
+                    <button
+                      class="p-2 text-white bg-emerald-900 hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBaseModalOpen = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+
+                    </button>
+
+                    <ul
+                      v-if="showBasesDropdown"
+                      class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
+                      @click.stop
+                    >
+                      <li
+                        v-for="a in filteredBases"
+                        :key="a.id"
+                        @mousedown.prevent="selectBase(a)"
+                        @click="selectBase(a)"
+                        class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
+                      >
+                        {{ a.tipobase }}
+                      </li>
+                      <li
+                        v-if="filteredBases.length === 0"
+                        class="px-3 py-1 text-gray-300 italic"
+                      >
+                        Nenhuma base encontrada
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1">Redução</label>
+                  <input
+                    v-model="newProduct!.reducao"
+                    type="text"
+                    placeholder="Insira a redução do produto"
+                    class="w-full border rounded px-2 py-1 bg-emerald-950"
+                  />
+                </div>
+
 
               </div>
             </div>
 
-            <!-- Selecionar bucha -->
-             <div class="flex flex-col gap-0.5 items-strech">
-              <h1 class="block text-sm font-medium mb-1">Bucha</h1>
-              <div class="flex items-center border rounded bg-emerald-950 relative"> 
-                <input
-                  v-model="buchaSearchTerm"
-                  type="text"
-                  placeholder="Escolha a bucha"
-                  class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
-                  @focus="showBuchasDropdown = true"
-                  @click.stop
-                />
+            <!-- Linha inferior com curso + botões -->
+            <div class="grid grid-cols-2 items-center mt-4 gap-3">
+              <!-- Campo curso à esquerda -->
+              <div class="col-span-2">
+                <label class="block text-sm font-medium mb-1">Descrição</label>
+                <textarea
+                  v-model="newProduct!.description"
+                  placeholder="Insira a descrição do produto"
+                  class="w-full border rounded px-3 py-2 bg-emerald-950 text-white resize-y min-h-[100px]"
+                ></textarea>
+              </div>
 
+              <!-- Botões à direita -->
+              <div class="col-span-2 flex justify-end gap-2">
                 <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBuchaModalOpen = true"
+                  @click="isAddModalOpen = false"
+                  class="px-4 py-2 rounded bg-gray-500 hover:bg-gray-400 hover:cursor-pointer"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
-                  </svg>
+                  Cancelar
                 </button>
-
-                <ul
-                  v-if="showBuchasDropdown"
-                  class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
-                  @click.stop
+                <button
+                  @click="addProduct(newProduct!), isAddModalOpen = false"
+                  class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
                 >
-                  <li
-                    v-for="a in filteredBuchas"
-                    :key="a.id"
-                    @mousedown.prevent="selectBucha(a)"
-                    @click="selectBucha(a)"
-                    class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
-                  >
-                    {{ a.tipobucha }}
-                  </li>
-                  <li
-                    v-if="filteredBuchas.length === 0"
-                    class="px-3 py-1 text-gray-300 italic"
-                  >
-                    Nenhuma bucha encontrado
-                  </li>
-                </ul>
-
+                  Salvar
+                </button>
               </div>
             </div>
-
-             <div class="flex flex-col gap-0.5 items-strech">
-              <h1 class="block text-sm font-medium mb-1">Base</h1>
-              <div class="flex items-center border rounded bg-emerald-950 relative"> 
-                <input
-                  v-model="baseSearchTerm"
-                  type="text"
-                  placeholder="Escolha a base"
-                  class="flex-1 px-2 py-1 bg-emerald-950 text-white outline-none rounded-l"
-                  @focus="showBasesDropdown = true"
-                  @click.stop
-                />
-
-                <button
-                  class="p-2 text-white hover:bg-emerald-800 rounded-r transition hover:cursor-pointer" @click="isAddBaseModalOpen = true"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
-                  </svg>
-                </button>
-
-                <ul
-                  v-if="showBasesDropdown"
-                  class="absolute top-full left-0 w-full bg-emerald-900 border border-emerald-700 rounded mt-1 max-h-48 overflow-y-auto z-10"
-                  @click.stop
-                >
-                  <li
-                    v-for="a in filteredBases"
-                    :key="a.id"
-                    @mousedown.prevent="selectBase(a)"
-                    @click="selectBase(a)"
-                    class="px-3 py-1 text-white hover:bg-emerald-800 cursor-pointer"
-                  >
-                    {{ a.tipobase }}
-                  </li>
-                  <li
-                    v-if="filteredBases.length === 0"
-                    class="px-3 py-1 text-gray-300 italic"
-                  >
-                    Nenhuma base encontrado
-                  </li>
-                </ul>
-
-              </div>
-            </div>
-
-
           </div>
         </div>
-
-        <!-- Linha inferior com curso + botões -->
-        <div class="grid grid-cols-2 items-center mt-4">
-          <!-- Campo curso à esquerda -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Curso (mm)</label>
-            <input
-              v-model="newProduct!.curso"
-              type="number"
-              placeholder="Insira o curso do produto"
-              class="w-full border rounded px-2 py-1 bg-emerald-950"
-            />
-          </div>
-
-          <!-- Botões à direita -->
-          <div class="flex justify-end gap-2 self-end">
-            <button
-              @click="isAddModalOpen = false"
-              class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 hover:cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              @click="addProduct(newProduct!), isAddModalOpen = false"
-              class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
-            >
-              Salvar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     
 
@@ -1197,43 +1271,47 @@ export default defineComponent({
       v-if="isAddBuchaModalOpen"
       class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
     >
-      <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl w-1/2">
-        <h3 class="text-lg font-semibold mb-4">Adicionar Bucha</h3>
+      <div class="relative bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl">
+        <h3 class="text-lg font-semibold mb-4">Nova Bucha</h3>
+
+         <button
+              @click="isAddBuchaModalOpen = false"
+              class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                class="w-7 h-7"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+          </button>
 
         <!-- Container do formulário -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <!-- Coluna 1 -->
-          <div>
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Bucha</label>
-              <input
-                v-model="newBucha!.tipobucha"
-                type="text"
-                placeholder="Insira o tipo de bucha"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
+         <div class="mb-6">
+            <label class="block text-sm font-medium mb-1 text-white">Bucha</label>
+            <input
+              v-model="newBucha!.tipobucha"
+              type="text"
+              placeholder="Insira o tipo de bucha"
+              class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
           </div>
-        </div>
 
-        <!-- Linha inferior com curso + botões -->
-        <div class="grid grid-cols-2 items-center mt-4">
-          <!-- Botões à direita -->
-          <div class="flex justify-end gap-2 self-end">
+          <!-- Botões abaixo, alinhados à direita -->
+          <div class="flex justify-end gap-3">
             <button
               @click="isAddBuchaModalOpen = false"
-              class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 hover:cursor-pointer"
+              class="px-4 py-2 rounded bg-gray-400 text-black font-semibold hover:bg-gray-300 hover:cursor-pointer transition-colors"
             >
               Cancelar
             </button>
             <button
               @click="addBucha(newBucha!), isAddBuchaModalOpen = false"
-              class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+              class="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700 hover:cursor-pointer transition-colors"
             >
               Salvar
             </button>
           </div>
-        </div>
       </div>
     </div>
 
@@ -1242,43 +1320,47 @@ export default defineComponent({
       v-if="isAddBaseModalOpen"
       class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
     >
-      <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl w-1/2">
-        <h3 class="text-lg font-semibold mb-4">Adicionar Base</h3>
+      <div class="relative bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl">
+        <h3 class="text-lg font-semibold mb-4">Nova Base</h3>
+
+         <button
+              @click="isAddBaseModalOpen = false"
+              class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                class="w-7 h-7"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+          </button>
 
         <!-- Container do formulário -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <!-- Coluna 1 -->
-          <div>
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Base</label>
-              <input
-                v-model="newBase!.tipobase"
-                type="text"
-                placeholder="Insira o tipo de base"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
+         <div class="mb-6">
+            <label class="block text-sm font-medium mb-1 text-white">Base</label>
+            <input
+              v-model="newBase!.tipobase"
+              type="text"
+              placeholder="Insira o tipo de base"
+              class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
           </div>
-        </div>
 
-        <!-- Linha inferior com curso + botões -->
-        <div class="grid grid-cols-2 items-center mt-4">
-          <!-- Botões à direita -->
-          <div class="flex justify-end gap-2 self-end">
+          <!-- Botões abaixo, alinhados à direita -->
+          <div class="flex justify-end gap-3">
             <button
               @click="isAddBaseModalOpen = false"
-              class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 hover:cursor-pointer"
+              class="px-4 py-2 rounded bg-gray-400 text-black font-semibold hover:bg-gray-300 hover:cursor-pointer transition-colors"
             >
               Cancelar
             </button>
             <button
-              @click="addBucha(newBase!), isAddBaseModalOpen = false"
-              class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+              @click="addBase(newBase!), isAddBaseModalOpen = false"
+              class="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700 hover:cursor-pointer transition-colors"
             >
               Salvar
             </button>
           </div>
-        </div>
       </div>
     </div>
 
@@ -1288,43 +1370,47 @@ export default defineComponent({
       v-if="isAddAcionamentoModalOpen"
       class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
     >
-      <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl w-1/2">
-        <h3 class="text-lg font-semibold mb-4">Adicionar Acionamento</h3>
+      <div class="relative bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl">
+        <h3 class="text-lg font-semibold mb-4">Novo Acionamento</h3>
+
+         <button
+              @click="isAddAcionamentoModalOpen = false"
+              class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                class="w-7 h-7"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+          </button>
 
         <!-- Container do formulário -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <!-- Coluna 1 -->
-          <div>
-            <div class="mb-3">
-              <label class="block text-sm font-medium mb-1">Acionamento</label>
-              <input
-                v-model="newAcionamento!.tipoacionamento"
-                type="text"
-                placeholder="Insira o tipo de acionamento"
-                class="w-full border rounded px-2 py-1 bg-emerald-950"
-              />
-            </div>
+         <div class="mb-6">
+            <label class="block text-sm font-medium mb-1 text-white">Acionamento</label>
+            <input
+              v-model="newAcionamento!.tipoacionamento"
+              type="text"
+              placeholder="Insira o tipo de acionamento"
+              class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
           </div>
-        </div>
 
-        <!-- Linha inferior com curso + botões -->
-        <div class="grid grid-cols-2 items-center mt-4">
-          <!-- Botões à direita -->
-          <div class="flex justify-end gap-2 self-end">
+          <!-- Botões abaixo, alinhados à direita -->
+          <div class="flex justify-end gap-3">
             <button
               @click="isAddAcionamentoModalOpen = false"
-              class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 hover:cursor-pointer"
+              class="px-4 py-2 rounded bg-gray-400 text-black font-semibold hover:bg-gray-300 hover:cursor-pointer transition-colors"
             >
               Cancelar
             </button>
             <button
-              @click="addBucha(newAcionamento!), isAddAcionamentoModalOpen = false"
-              class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+              @click="addAcionamento(newAcionamento!), isAddAcionamentoModalOpen = false"
+              class="px-4 py-2 rounded bg-green-600 text-white font-semibold hover:bg-green-700 hover:cursor-pointer transition-colors"
             >
               Salvar
             </button>
           </div>
-        </div>
       </div>
     </div>
 

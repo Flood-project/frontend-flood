@@ -5,7 +5,6 @@ import Usuariologado from "../Usuariologado.vue"
 import LoginTestPage from "../modules/login/view/logintest_page.vue"
 import Home_catalog from "../modules/catalog/view/home_catalog.vue"
 import Admin_catalog from "../modules/catalog/view/admin/admin_catalog.vue"
-import Edit_product from "../modules/catalog/view/admin/edit_product.vue"
 import { getAccessToken, getRefreshToken, removeAccessTokens, setAccessToken } from "../services/token"
 import { getClaims, isTokenExpired } from "../services/jwt_decoder"
 import { RefreshMethod } from "../modules/login/repository/login_repository"
@@ -44,7 +43,7 @@ const router = createRouter({
             path: '/catalogo',
             name: 'catalogo',
             component: Home_catalog,
-            meta: { requiresAuth: true, role: 1} //apenas grupo usuário 1 com token pode acessar a rota
+            meta: { requiresAuth: true, role: 2} //apenas grupo usuário 2 com token pode acessar a rota
         },
         {
             path: '/admin/catalog',
@@ -55,7 +54,8 @@ const router = createRouter({
         {
             path: '/admin/users',
             name: 'user_managment',
-            component: UserPage
+            component: UserPage,
+            meta: { requiresAuth: true, role: 3}
         }
     ]
 })

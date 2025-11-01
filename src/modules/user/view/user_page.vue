@@ -1,7 +1,11 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue'
 import { type AccountUser } from '../domain/user';
-import { getUsers } from '../repository/user_repository';
+import { type EditingUser } from '../domain/user';
+import { type CreatedUser } from '../domain/user';
+import { createUser, getUsers, updateUser } from '../repository/user_repository';
+
+
 
 export default defineComponent({
   setup() {
@@ -12,9 +16,54 @@ export default defineComponent({
     const loading = ref(false);
     const search = ref("");
     let timeout: number | undefined
-    
 
-    const usersWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
+    const newUser = ref<CreatedUser | null>(null);
+
+    newUser.value = { id: 0, name: "", email: "", id_user_group: 0, passwordHash: ""};
+
+
+    const editingUser = ref<EditingUser | null>(null);
+
+    // const gruposUsuario = ref< { id: number; tipobucha: string } []>([]);
+    // const newGrupoUsuario = ref<Bucha | null>(null);
+    // const selectedGrupoUsuario = ref<{ id: number; tipobucha: string } | null>(null);
+    // const showGrupoUsuarioDropdown = ref(false);
+    // const grupoUsuarioSearchTerm = ref("");
+
+    const isEditUserModalOpen = ref (false);
+    
+    const isAddUserModalOpen = ref (false);
+
+    function openAddUserModal() {
+      isAddUserModalOpen.value = true
+    }
+
+    const addUser = async (newUser: CreatedUser) => {
+      console.log(newUser, "antes de chamar create product");
+      if (newUser) {
+        await createUser(newUser);
+        console.log(newUser, "depois de chamar create product")
+        isAddUserModalOpen.value = false // fecha modal/edição
+      }
+    };
+
+    function openEditUserModal(user: AccountUser) {
+
+      editingUser.value = user;
+
+      isEditUserModalOpen.value = true
+    };
+
+    const editUser = async (editingUser: AccountUser) => {
+      console.log(editingUser);
+      if (editingUser) {
+        await updateUser(editingUser.id, editingUser);
+        // atualiza na lista
+        isEditUserModalOpen.value = false // fecha modal/edição
+      }
+    };
+
+    const usersWithParams = async (options = {}): Promise<AccountUser[]> => {
       loading.value = true;
 
       try {
@@ -52,11 +101,26 @@ export default defineComponent({
     const onSearch = () => {
       clearTimeout(timeout);
       timeout = window.setTimeout(() => {
-        productsWithParams({ search: search.value })
+        usersWithParams({ search: search.value })
       }, 400)
     }
 
-    return { users };
+    return { 
+    
+    users,
+    isEditUserModalOpen,
+    openEditUserModal,
+    editUser,
+    editingUser,
+    onSearch,
+    search,
+    isAddUserModalOpen,
+    openAddUserModal,
+    addUser,
+    newUser
+
+    }
+
   },
 });
 </script>
@@ -86,16 +150,29 @@ export default defineComponent({
 
       
       <!-- título -->
-      <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+      <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Gerenciar Usuários</h2>
 
-      <input
-        v-model="search"
-        @input="onSearch"
-        type="text"
-        placeholder="Buscar usuário por nome..."
-        class="p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
-      >
-      </input>
+      <div class="flex justify-between items-center mb-10 gap-x-10">
+
+        <input
+          v-model="search"
+          @input="onSearch"
+          type="text"
+          placeholder="Buscar usuário por nome..."
+          class="p-3 rounded-lg w-80 bg-white text-black font-bold"
+        />
+
+        <button
+          @click="openAddUserModal()"
+          class="h-12 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 p-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          Novo Usuário
+        </button>
+
+      </div>
 
       <!-- grid -->
       <div id="user-container" class="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-y-3 justify-items-center w-full max-w-7xl">
@@ -129,12 +206,11 @@ export default defineComponent({
                   {{ user.name }}
                 </td>
                 <td class="px-4 py-2 text-gray-700 dark:text-gray-300">
-                  {{ user.id_user_group }}
+                  {{ user.group_name }}
                 </td>
                 <td class="px-4 py-2 text-center">
                   <button
-                    @click="editUser(user)"
-                    class="bg-emerald-600 text-white px-3 py-1 rounded-lg hover:bg-emerald-700 transition-colors mr-2"
+                    class="bg-emerald-600 text-white px-3 py-1 rounded-lg hover:bg-emerald-700 transition-colors mr-2 hover:cursor-pointer" @click="openEditUserModal(user)"
                   >
                     Editar
                   </button>
@@ -150,9 +226,154 @@ export default defineComponent({
           </table>
         </div>
 
+        <div
+          v-if="isAddUserModalOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
+        >
+          <div class="relative bg-emerald-900 p-8 rounded-xl shadow-lg w-[95%] max-w-5xl">
+            <h3 class="text-2xl font-semibold mb-4">Novo Usuário</h3>
+
+            <button
+                  @click="isAddUserModalOpen = false"
+                  class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                    class="w-7 h-7"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+            <!-- Container do formulário -->
+            <div class="grid grid-cols-1 gap-4">
+              <!-- Coluna 1 -->
+              <div>
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1 text-white">Nome</label>
+                  <input
+                    v-model="newUser!.name"
+                    type="text"
+                    placeholder="Insira o nome"
+                    class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  />
+                </div>
+
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1 text-white">Email</label>
+                  <input
+                    v-model="newUser!.email"
+                    type="text"
+                    placeholder="Insira o email"
+                    class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  />
+                </div>
+
+                <div class="mb-3">
+                  <label class="block text-sm font-medium mb-1 text-white">Cargo</label>
+                  <input
+                    v-model="newUser!.id_user_group"
+                    type="text"
+                    placeholder="Insira o tipo de cargo"
+                    class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  />
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- Linha inferior com curso + botões -->
+            <div class="grid grid-cols-2 items-center mt-4 gap-3">
+              <!-- Campo curso à esquerda -->
+              <div class="col-span-2">
+                <label class="block text-sm font-medium mb-1">Teste</label>
+                <textarea
+                  v-model="newUser!.email"
+                  placeholder="teste"
+                  class="w-full border rounded px-3 py-2 bg-emerald-950 text-white resize-y min-h-[100px]"
+                ></textarea>
+              </div>
+
+              <!-- Botões à direita -->
+              <div class="col-span-2 flex justify-end gap-2">
+                <button
+                  @click="isAddUserModalOpen = false"
+                  class="px-4 py-2 rounded bg-gray-500 hover:bg-gray-400 hover:cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  @click="addUser(newUser!), isAddUserModalOpen = false"
+                  class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+                >
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="isEditUserModalOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
+        >
+          <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl">
+            <h3 class="text-lg font-semibold mb-4 text-white">Editar Usuário</h3>
+
+            <!-- Grid responsiva -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Nome</label>
+                <input
+                  v-model="editingUser!.name"
+                  type="text"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Email</label>
+                <input
+                  v-model="editingUser!.email"
+                  type="text"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label class="block text-sm font-medium text-white">Tipo de Usuário</label>
+                <input
+                  v-model="editingUser!.id_user_group"
+                  type="number"
+                  class="w-full border rounded px-2 py-1 bg-emerald-950"
+                />
+              </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+              <button
+                @click="isEditUserModalOpen = false"
+                class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-black hover:cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                @click="editUser(editingUser), isEditUserModalOpen = false"
+                class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        </div>
+
         <!-- Repita o card ou use v-for -->
-        
-      </div>
+      
 
 
       <footer class="bg-white dark:bg-emerald-950 text-black dark:text-white w-full mt-10">
