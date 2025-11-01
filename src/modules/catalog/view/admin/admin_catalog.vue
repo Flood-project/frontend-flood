@@ -11,6 +11,7 @@ import { fetchBuchas, createBucha, deleteBuchaById } from "../../../bucha/reposi
 import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../repository/base_repository"
 import type { ProductWithComponents } from "../../domain/productWithComponents";
 import { removeAccessTokens } from "../../../../services/token";
+import { router } from "../../../../router";
 
 
 export default defineComponent({
@@ -378,6 +379,12 @@ export default defineComponent({
       }
     }
    
+    const logout = () => {
+      console.log('ta aqui');
+      
+      removeAccessTokens()
+      router.push({ path: '/' })
+    }
 
     return {
       product,
@@ -430,7 +437,8 @@ export default defineComponent({
       filterBucha,
       filterWithParamsHandler,
       filterAcionamento,
-      filterBase
+      filterBase,
+      logout
     };
   },
 });
@@ -483,7 +491,7 @@ export default defineComponent({
 
         </div>
 
-        <button class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700">Logout</button>
+        <button class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700" @click="logout()">Logout</button>
 
       </div>
 

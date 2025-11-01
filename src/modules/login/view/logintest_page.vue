@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import type { AccountUser } from "../../user/domain/user";
 //import type { MyClaims } from "../repository/login_repository";
 import { jwtDecode } from "jwt-decode";
+import { getClaims } from "../../../services/jwt_decoder";
 
 export default defineComponent({
   setup() {
@@ -46,12 +47,22 @@ emailError.value = "";
           password_hash: password.value,
         }
 
-        const response = await LoginMethod(newReq);
-        console.log(response);
-        
+        await LoginMethod(newReq);
+        const claims = getClaims();
 
         (email.value = ""), (password.value = "");
-        router.push({path: '/catalogo'})
+
+        if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/catalog'})
+        } else if (claims?.id_user_group === 2) {
+          await router.push({path: '/catalogo'})
+        } else if (claims?.id_user_group === 3) {
+          await router.push({path: '/comercial'})
+        } else {
+          router.push({path: '/'})
+        }
+
+ 
       } catch (error) {
         passwordError.value = "Usuário ou senha incorretos.";
         console.log("Usuário ou senha incorretos.", error);
