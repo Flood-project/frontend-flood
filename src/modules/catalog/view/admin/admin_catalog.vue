@@ -14,6 +14,13 @@ import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../rep
 export default defineComponent({
   setup() {
 
+    const total = ref(0);
+    const page = ref(1)
+    const limit = ref(10);
+    const loading = ref(false);
+    const search = ref("");
+    let timeout: number | undefined
+
     const acionamentos = ref<{ id: number; tipoacionamento: string }[]>([]);
     const showAcionamentosDropdown = ref(false);
     const acionamentoSearchTerm = ref("");
@@ -72,6 +79,29 @@ export default defineComponent({
         tipobase: baseMap.value[p.id_base] || 'Desconhecido',
       }))
     );
+
+
+    const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
+      loading.value = true;
+
+      try {
+        const data = await withParams({
+          page: 1,
+          limit: 10,
+          ...options
+        });
+        console.log(data);
+        products.value = data.products_with_params
+        page.value = data.page
+        limit.value = data.limit
+        return data.products_with_params
+      } catch (err) {
+        console.log("Erro ao listar com parâmetros, ", err)
+        return []
+      } finally {
+        loading.value = false;
+      }
+    }
 
 
     const product = ref<Product>();
@@ -296,6 +326,13 @@ export default defineComponent({
       }
     };
 
+    const onSearch = () => {
+      clearTimeout(timeout);
+      timeout = window.setTimeout(() => {
+        productsWithParams({ search: search.value })
+      }, 400)
+    }
+
     return {
       product,
       products,
@@ -336,7 +373,14 @@ export default defineComponent({
       selectAcionamento,
       selectBase,
       selectBucha,
-      produtosCompletos
+      produtosCompletos,
+      total,
+      page,
+      limit,
+      search,
+      loading,
+      productsWithParams,
+      onSearch
 
     };
   },
@@ -411,6 +455,15 @@ export default defineComponent({
           Adicionar Produto</button>
 
       </div>
+
+      <input
+        v-model="search"
+        @input="onSearch"
+        type="text"
+        placeholder="Buscar produto por código..."
+        class="p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
+      >
+      </input>
 
       <!-- grid -->
       <div id="produtos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center  max-w-7xl">

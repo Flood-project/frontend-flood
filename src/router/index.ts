@@ -52,6 +52,11 @@ const router = createRouter({
             component: Admin_catalog,
             meta: { requiresAuth: true, role: 1 }
         },
+        {
+            path: '/admin/users',
+            name: 'user_managment',
+            component: UserPage
+        }
     ]
 })
 
