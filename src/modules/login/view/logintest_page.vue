@@ -41,22 +41,46 @@ emailError.value = "";
   if (!valid) return; 
 
       try {
-        const newReq = {
-          email: email.value,
-          password_hash: password.value,
-        }
+    const newReq = {
+      email: email.value,
+      password_hash: password.value,
+    };
 
-        const response = await LoginMethod(newReq);
-        console.log(response);
-        
+    const response = await LoginMethod(newReq);
+    console.log(response);
 
-        (email.value = ""), (password.value = "");
-        router.push({path: '/catalogo'})
-      } catch (error) {
-        passwordError.value = "Usuário ou senha incorretos.";
-        console.log("Usuário ou senha incorretos.", error);
-        
-      }
+    // Supondo que o backend devolve o token JWT:
+    const token = response.token || response.token;
+    if (!token) throw new Error("Token não recebido");
+
+    // Salva o token no localStorage (ou cookie)
+    localStorage.setItem("access_token", token);
+
+    // Decodifica o token
+    const decoded: any = jwtDecode(token);
+    console.log("Decoded JWT:", decoded);
+
+    // Pega o grupo do usuário
+    const group = decoded?.id_user_group;
+
+    // Redireciona com base no grupo
+    if (group === 1) {
+      router.push({ path: "/admin/catalog" }); // Admin
+    } else if (group === 2) {
+      router.push({ path: "/catalogo" }); // Usuário normal
+    } else if (group === 3) {
+      router.push({ path: "/users" }); // Usuário de grupo 3
+    } else {
+      router.push({ path: "/testlogin" }); // Caso o grupo seja inválido
+    }
+
+    // Limpa os campos
+    email.value = "";
+    password.value = "";
+  } catch (error) {
+    passwordError.value = "Usuário ou senha incorretos.";
+    console.error("Erro ao tentar login:", error);
+  }
     };
 
     return { 
