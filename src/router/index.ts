@@ -35,7 +35,7 @@ const router = createRouter({
             }
         },
         {
-            path: '/testlogin',
+            path: '/',
             name: 'logintest',
             component: LoginTestPage
         },
@@ -65,24 +65,21 @@ router.beforeEach(async (to, from) => {
     var claims = getClaims();
     let accessToken = getAccessToken();
 
-    if (to.name === "loginteste") {
+    if (to.path === '/') {
         return true;
     }
     
     if(to.meta.requiresAuth && !accessToken) {
         removeAccessTokens();
-        return {
-            name: 'loginteste'
-        }
+        return '/'
+      
     }
 
     if (accessToken && isTokenExpired(accessToken)) {
         const refreshToken = getRefreshToken();
         if (!refreshToken) {
             removeAccessTokens();
-            return {
-                name: 'loginteste'
-            }
+            return '/'
         }
 
         try {
@@ -92,9 +89,7 @@ router.beforeEach(async (to, from) => {
             claims = getClaims();
         } catch (error) {
             removeAccessTokens();
-            return {
-                name: 'loginteste'
-            }
+            return '/'
         }
     }
 
