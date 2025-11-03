@@ -5,17 +5,113 @@ import type { Base } from "../../domain/base";
 import type { Acionamento } from "../../domain/acionamento"; 
 import type { Bucha } from "../../domain/bucha"; 
 import { useRouter } from "vue-router";
-import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById, withParams, filterWithParams } from "../../repository/product_repository";
+import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById, withParams, filterWithParams, fetchWithComponents } from "../../repository/product_repository";
 import { fetchAcionamentoById, fetchAcionamentos, createAcionamento, deleteAcionamentoById } from "../../repository/acionamento_repository"
 import { fetchBuchas, createBucha, deleteBuchaById } from "../../../bucha/repository/bucha_repository"
 import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../repository/base_repository"
 import type { ProductWithComponents } from "../../domain/productWithComponents";
 import { removeAccessTokens } from "../../../../services/token";
 import { router } from "../../../../router";
+import { getImageUrl, uploadProductImage, type UploadResponse } from "../../repository/object_store";
+import type { FileData, SelectedFile } from "../../domain/file";
 
+// Move o hook useFileUpload para FORA do setup
+const useFileUpload = () => {
+  const selectedFile = ref<SelectedFile | null>(null);
+  const isUploading = ref(false);
+  const uploadResult = ref<UploadResponse | null>(null);
+
+  const handleFileUpload = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const files = Array.from(target.files || []);
+    
+    // Limpa arquivo anterior
+    selectedFile.value = null;
+    uploadResult.value = null;
+    
+    // Pega apenas o primeiro arquivo
+    const file = files[0];
+    
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        selectedFile.value = {
+          file: file,
+          preview: e.target?.result as string,
+          name: file.name,
+          status: 'pending'
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeFile = () => {
+    selectedFile.value = null;
+    uploadResult.value = null;
+  };
+
+  const uploadFile = async (productId: number): Promise<UploadResponse | null> => {
+    if (!selectedFile.value) {
+      return null;
+    }
+
+    isUploading.value = true;
+    
+    try {
+      // Atualiza status para uploading
+      selectedFile.value.status = 'uploading';
+      selectedFile.value.uploadProgress = 0;
+
+      const result = await uploadProductImage(productId, selectedFile.value.file);
+      
+      // Atualiza status para success
+      selectedFile.value.status = 'success';
+      selectedFile.value.uploadProgress = 100;
+      
+      uploadResult.value = result;
+      return result;
+      
+    } catch (error) {
+      // Atualiza status para error
+      if (selectedFile.value) {
+        selectedFile.value.status = 'error';
+      }
+      throw error;
+    } finally {
+      isUploading.value = false;
+    }
+  };
+
+  const clearFile = () => {
+    selectedFile.value = null;
+    uploadResult.value = null;
+  };
+
+  // RETURN FALTANDO - este é o problema principal
+  return {
+    selectedFile,
+    isUploading,
+    uploadResult,
+    handleFileUpload,
+    removeFile,
+    uploadFile,
+    clearFile
+  };
+};
 
 export default defineComponent({
   setup() {
+    // Use o hook de file upload
+    const {
+      selectedFile,
+      isUploading,
+      uploadResult,
+      handleFileUpload,
+      removeFile,
+      uploadFile,
+      clearFile
+    } = useFileUpload();
 
     const acionamentos = ref<{ id: number; tipoacionamento: string }[]>([]);
     const showAcionamentosDropdown = ref(false);
@@ -52,7 +148,6 @@ export default defineComponent({
     const filterBase = ref("")
     const productsWithComponents = ref<ProductWithComponents[]>([])
 
-
     newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0};
 
     newBucha.value = { id: 0, tipobucha: ""};
@@ -85,19 +180,28 @@ export default defineComponent({
         tipoacionamento: acionamentoMap.value[p.id_acionamento] || 'Desconhecido',
         tipobucha: buchaMap.value[p.id_bucha] || 'Desconhecido',
         tipobase: baseMap.value[p.id_base] || 'Desconhecido',
+        images: p.images || [] 
       }))
     );
 
+    const imageUrls = ref<Record<string, string>>({})
+    const image = ref('')
+
+    const getImage = async (storageKey: any) => {
+      console.log(storageKey.storage_key);
+      const key = storageKey.storage_key
+      
+      const response = await getImageUrl(key)
+    console.log('tem', response);
+
+      if (!storageKey || !storageKey.storage_key) return '';
+      console.log(response);
+      image.value = response
+      return response
+          
+    };
 
     const product = ref<Product>();
-
-    onMounted(async () => {
-      products.value = await fetchProducts();
-      acionamentos.value = await fetchAcionamentos();
-      buchas.value = await fetchBuchas();
-      bases.value = await fetchBases();
-      document.addEventListener("click", handleClickOutside);
-    });
 
     const isEditModalOpen = ref(false)
 
@@ -301,14 +405,62 @@ export default defineComponent({
       }
     };
 
-    const addProduct = async (newProduct: Product) => {
-      console.log(acionamentos.value)
-      console.log(newProduct, "antes de chamar create product");
-      if (newProduct) {
-        await createProduct(newProduct);
-        console.log(newProduct, "depois de chamar create product")
-        isAddModalOpen.value = false // fecha modal/edição
+    // Função que combina criação do produto + upload de imagem
+const addProductWithFile = async () => {
+  if (!newProduct.value?.codigo) {
+    alert('Por favor, preencha o código do produto');
+    return;
+  }
+
+  try {
+    // 1. Primeiro adiciona o produto para obter o ID
+    console.log('Criando produto...', newProduct.value);
+    const createdProduct = await createProduct(newProduct.value);
+    console.log('Produto criado com ID:', createdProduct.id);
+    
+    // 2. Se houver arquivo selecionado, faz o upload
+    if (selectedFile.value && createdProduct.id) {
+      console.log('Iniciando upload da imagem...');
+      const uploadResult = await uploadFile(createdProduct.id);
+      
+      if (uploadResult) {
+        console.log('Upload da imagem concluído com sucesso!', uploadResult);
+        // Aqui você pode atualizar o produto com a URL da imagem se necessário
       }
+    } else {
+      console.log('Nenhum arquivo selecionado para upload');
+    }
+    
+    // 3. Recarrega a lista de produtos
+    await productsWithParams({page: page.value, limit: limit.value});
+    
+    // 4. Fecha o modal e limpa os dados
+    isAddModalOpen.value = false;
+    clearFile();
+    resetProductForm();
+    
+    console.log('Processo concluído com sucesso!');
+    
+  } catch (error) {
+    console.error('Erro ao adicionar produto:', error);
+    alert('Erro ao adicionar produto. Tente novamente.');
+  }
+};
+
+    const resetProductForm = () => {
+      newProduct.value = { 
+        id: 0,
+        codigo: "", 
+        description: "", 
+        capacidade_estatica: 0, 
+        capacidade_trabalho: 0, 
+        reducao: "", 
+        altura_bucha: 0, 
+        curso: 0, 
+        id_bucha: 0, 
+        id_acionamento: 0, 
+        id_base: 0 
+      };
     };
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
@@ -325,7 +477,7 @@ export default defineComponent({
           limit: 10,
           ...options
         });
-        console.log(data);
+        console.log('data dos params: ', data);
         products.value = data.products_with_params
         page.value = data.page
         limit.value = data.limit
@@ -345,9 +497,41 @@ export default defineComponent({
       }, 400)
     }
 
+    const fetchProductsWithComponents = async () => {
+  loading.value = true;
+  try {
+    const productsData = await fetchWithComponents();
+    console.log("Dados do fetchWithComponents:", productsData);
+    
+    // Verifica se as imagens estão vindo
+    if (productsData && productsData.length > 0) {
+      console.log("Primeiro produto:", productsData[0]);
+      console.log("Imagens do primeiro produto:", productsData[0].images);
+    }
+    
+    products.value = productsData;
+    return productsData;
+  } catch (error) {
+    console.error("Erro ao buscar produtos com componentes:", error);
+    return [];
+  } finally {
+    loading.value = false;
+  }
+}
+
     onMounted(async () => {
-      
-      products.value = await productsWithParams({page: page.value,  limit: limit.value})
+      products.value = await productsWithParams({page: page.value, limit: limit.value,})
+      //products.value = await productsWithParams({page: page.value,  limit: limit.value})
+        acionamentos.value = await fetchAcionamentos();
+      buchas.value = await fetchBuchas();
+      bases.value = await fetchBases();
+      document.addEventListener("click", handleClickOutside);
+      for (const product of produtosCompletos.value) {
+        if (product.images?.[0]?.storage_key) {
+            const url = await getImageUrl(product.images[0].storage_key);
+            imageUrls.value[product.images[0].storage_key] = url;
+        }
+    }
     });
 
     const filterWithParamsHandler = async () => {
@@ -386,6 +570,8 @@ export default defineComponent({
       router.push({ path: '/' })
     }
 
+    
+
     return {
       product,
       products,
@@ -398,7 +584,7 @@ export default defineComponent({
       isEditModalOpen,
       isAddModalOpen,
       openAddModal,
-      addProduct,
+      addProduct: addProductWithFile, // Use a nova função com upload
       showProductDetails,
       isProductDetailsOpen,
       addBucha,
@@ -438,7 +624,17 @@ export default defineComponent({
       filterWithParamsHandler,
       filterAcionamento,
       filterBase,
-      logout
+      logout,
+      getImage,
+      image,
+      imageUrls,
+      // File upload functions - CORRIGIDO: sem duplicação
+      selectedFile,
+      isUploading,
+      handleFileUpload,
+      removeFile,
+      uploadFile,
+      clearFile
     };
   },
 });
@@ -552,12 +748,28 @@ export default defineComponent({
 
       <!-- grid -->
       <div id="produtos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center  max-w-7xl">
-        
-        <div v-for="product in produtosCompletos" :key="product.id"
+        <div v-if="loading" class="flex justify-center items-center py-8">
+          <span class="loading loading-ring loading-lg text-blue-700"></span>
+          <span class="ml-4">Carregando produtos...</span>
+        </div>
+        <div v-else v-for="product in produtosCompletos" :key="product.id"
           class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
         >
-          <!-- Foto -->
-          <img src="../../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
+          <!-- Foto - CORRIGIDO -->
+          <div class="h-48 w-full bg-gray-200 rounded-t-xl overflow-hidden">
+            <img 
+              v-if="product.images && product.images.length > 0"
+              :src="imageUrls[product.images[0].storage_key]" 
+              :alt="product.images[0].file_name"
+              class="w-full h-full object-cover"
+            />
+            <img 
+              v-else
+              src="" 
+              alt="Imagem padrão"
+              class="w-full h-full object-cover"
+            />
+          </div>
 
           <!-- Conteúdo -->
           <div class="p-5 flex flex-col space-y-4">
@@ -1245,7 +1457,7 @@ export default defineComponent({
         </div>
 
         <!-- Linha inferior com curso + botões -->
-        <div class="grid grid-cols-2 items-center mt-4">
+        <div class="grid grid-cols-3 items-center mt-4">
           <!-- Campo curso à esquerda -->
           <div>
             <label class="block text-sm font-medium mb-1">Curso (mm)</label>
@@ -1256,6 +1468,17 @@ export default defineComponent({
               class="w-full border rounded px-2 py-1 bg-emerald-950"
             />
           </div>
+
+          <div class="ml-2">
+              <h1 class="block text-sm font-medium mb-1">Imagens do Produto</h1>
+              <input 
+                type="file" 
+                class="file-input w-full border border-white rounded py-1 px-2 bg-emerald-950"
+                 @change="handleFileUpload"
+               
+                accept="image/*"
+              />
+            </div>
 
           <!-- Botões à direita -->
           <div class="flex justify-end gap-2 self-end">

@@ -57,7 +57,7 @@ emailError.value = "";
         } else if (claims?.id_user_group === 2) {
           await router.push({path: '/catalogo'})
         } else if (claims?.id_user_group === 3) {
-          await router.push({path: '/comercial'})
+          await router.push({path: '/users'})
         } else {
           router.push({path: '/'})
         }
