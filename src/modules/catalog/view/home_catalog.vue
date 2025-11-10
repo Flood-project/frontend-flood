@@ -361,7 +361,7 @@ export default defineComponent({
           class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
         >
           <!-- Foto -->
-          <img src="../../../../imgstorage/testes/ral.jpg" alt="" class="object-cover rounded-t-xl h-70 w-full">
+          <img src="" alt="" class="object-cover rounded-t-xl h-48 w-full">
 
           <!-- Conteúdo -->
           <div class="p-5 flex flex-col space-y-4">
