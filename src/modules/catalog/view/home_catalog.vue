@@ -1,6 +1,6 @@
 <script lang="ts">
-import { defineComponent, ref, onMounted } from "vue";
-import { filterWithParams, withParams } from "../repository/product_repository";
+import { defineComponent, ref, onMounted, computed } from "vue";
+import { fetchById, filterWithParams, withParams } from "../repository/product_repository";
 import type { ProductWithComponents } from "../domain/productWithComponents";
 import type { Bucha } from "../../bucha/domain/bucha_domain";
 import { fetchBuchas } from "../../bucha/repository/bucha_repository";
@@ -8,10 +8,14 @@ import type { Acionamento } from "../../acionamento/domain/acionamento_domain";
 import { fetchAcionamentos } from "../repository/acionamento_repository";
 import type { Base } from "../../base/domain/base_domain";
 import { fetchBases } from "../../base/repository/base_repository";
+import type { DetailedProduct, Product } from "../domain/product";
+import { useRouter } from "vue-router";
+import { removeAccessTokens } from "../../../services/token";
 
 
 export default defineComponent({
   setup() {
+    const router = useRouter();
     const products = ref<ProductWithComponents[]>([]);
     const total = ref(0);
     const page = ref(1)
@@ -22,54 +26,31 @@ export default defineComponent({
     const filterBucha = ref("")
     const filterAcionamento = ref("")
     const filterBase = ref("")
-    const buchas = ref<Bucha[]>([])
-    const acionamentos = ref<Acionamento[]>([])
-    const bases = ref<Base[]>([])
+    const buchas = ref< { id: number; tipobucha: string } []>([]);
+    const acionamentos = ref<{ id: number; tipoacionamento: string }[]>([]);
     
-    const getBuchas = async (): Promise<Bucha[]> => {
-      try {
-        loading.value = true
+    const bases = ref< { id: number; tipobase: string } []>([]);
+    const fetchedProduct = ref<DetailedProduct | null>(null);
 
-        const response = await fetchBuchas()
-        return buchas.value = response
-      } catch(error) {
-        console.log(error);
-        return []
-      } finally {
-        loading.value = false
-      }
-    }
+     const acionamentoSearchTerm = ref("");
+     const buchaSearchTerm = ref("");
+     const baseSearchTerm = ref("");
 
-    const getAcionamentos = async (): Promise<Acionamento[]> => {
-      try {
-        loading.value = true
 
-        const response = await fetchAcionamentos()
-        return acionamentos.value = response
-      } catch(error) {
-        console.log(error);
-        return []
-      } finally {
-        loading.value = false
-      }
-    }
-
-    const getBases = async (): Promise<Base[]> => {
-      try {
-        loading.value = true
-
-        const response = await fetchBases()
-        return bases.value = response
-      } catch(error) {
-        console.log(error);
-        return []
-      } finally {
-        loading.value = false
-      }
-    }
+    const images = ref([
+      "../../../../imgstorage/testes/ral.jpg",
+      "../../../../imgstorage/testes/ral2.jpg",
+      "../../../../imgstorage/testes/ral3.jpg",
+    ]);
+    
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
       loading.value = true;
+
+      if (loading.value) {
+        console.log('await loading');
+        
+      } 
 
       try {
         const data = await withParams({
@@ -97,44 +78,136 @@ export default defineComponent({
       }, 400)
     }
 
+     const filteredAcionamentos = computed(() => {
+      return acionamentos.value.filter(a =>
+        a.tipoacionamento.toLowerCase().includes(acionamentoSearchTerm.value.toLowerCase())
+      );
+    });
+
+    const filteredBuchas = computed(() => {
+      return buchas.value.filter(a =>
+        a.tipobucha.toLowerCase().includes(buchaSearchTerm.value.toLowerCase())
+      );
+    });
+
+    const filteredBases = computed(() => {
+      return bases.value.filter(a =>
+        a.tipobase.toLowerCase().includes(baseSearchTerm.value.toLowerCase())
+      );
+    });
+
     onMounted(async () => {
       
       products.value = await productsWithParams({page: page.value,  limit: limit.value})
-      getBuchas()
-      getAcionamentos()
-      getBases()
+      acionamentos.value = await fetchAcionamentos();
+      buchas.value = await fetchBuchas();
+      bases.value = await fetchBases();
     });
 
-    const filterWithParamsHandler = async () => {
-      try {
-        loading.value = true;
+    const acionamentoMap = computed<Record<number, string>>(() => {
+      const map: Record<number, string> = {};
+      acionamentos.value.forEach(a => map[a.id] = a.tipoacionamento);
+      return map;
+    });
 
-        const response = await filterWithParams({
-          tipo_bucha: filterBucha.value,
-          tipoacionamento: filterAcionamento.value,
-          tipobase: filterBase.value,
-          page: 1,
-          limit: 10
-        })
+    const buchaMap = computed<Record<number, string>>(() => {
+      const map: Record<number, string> = {};
+      buchas.value.forEach(a => map[a.id] = a.tipobucha);
+      return map;
+    });
 
-        if (response.products_with_params) {
-          products.value = response.products_with_params  
-        } else {
-          console.log('no products found');
-          
-        }
+    const baseMap = computed<Record<number, string>>(() => {
+      const map: Record<number, string> = {};
+      bases.value.forEach(a => map[a.id] = a.tipobase);
+      return map;
+    });
 
-        console.log(products.value);
-        
-      } catch (error) {
-        console.log(error);
-        
-      } finally {
-        loading.value = false;
+    const isProductDetailsOpen = ref (false);
+
+    const showProductDetails = async (p: Product) => {
+
+      isProductDetailsOpen.value = true;
+
+      console.log(fetchedProduct);
+
+      const response = await fetchById(p.id); 
+
+      fetchedProduct.value = {
+      ...response,
+      tipoacionamento: acionamentoMap.value[response.id_acionamento] || "Desconhecido",
+      tipobucha: buchaMap.value[response.id_bucha] || "Desconhecido",
+      tipobase: baseMap.value[response.id_base] || "Desconhecido",
       }
     }
 
+    const filterWithParamsHandler = async () => {
+  try {
+    loading.value = true;
+
+    // Log para debug
+    console.log('Filtros aplicados:', {
+      tipo_bucha: filterBucha.value,
+      tipoacionamento: filterAcionamento.value,
+      tipobase: filterBase.value
+    });
+
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value || undefined, // Não enviar string vazia
+          tipoacionamento: filterAcionamento.value || undefined,
+          tipobase: filterBase.value || undefined,
+          page: page.value, // Usar page.value ao invés de 1 fixo
+          limit: limit.value
+        });
+
+        console.log('Response recebida:', response);
+
+        if (response && response.products_with_params) {
+          products.value = response.products_with_params;
+          total.value = response.total || 0;
+          page.value = response.page || 1;
+
+          console.log('✅ Produtos DEPOIS do filtro:', products.value.length);
+          console.log('✅ Array atualizado:', products.value);
+        } else {
+          // Se não houver produtos, limpar a lista
+          products.value = [];
+          total.value = 0;
+          console.log('Nenhum produto encontrado com os filtros aplicados');
+        }
+
+      } catch (error) {
+        console.error('Erro ao filtrar produtos:', error);
+        products.value = []; // Limpar em caso de erro
+      } finally {
+        loading.value = false;
+      }
+    } 
+
+    const clearFilters = async () => {
+      filterBucha.value = "";
+      filterAcionamento.value = "";
+      filterBase.value = "";
+      await productsWithParams({ page: page.value, limit: limit.value });
+    };
+    
+
+    const selectedImage = ref(images.value[0]);
+
+    const logout = () => {
+      console.log('ta aqui');
+      
+      removeAccessTokens()
+      router.push({ path: '/' })
+    }
     return {
+      clearFilters,
+      fetchedProduct,
+      filteredAcionamentos,
+      filteredBases,
+      filteredBuchas,
+      selectedImage,
+      images,
+      logout,
       products,
       total,
       page,
@@ -147,10 +220,11 @@ export default defineComponent({
       filterWithParamsHandler,
       filterAcionamento,
       filterBase,
-      getBuchas,
       buchas,
       acionamentos,
-      bases
+      bases,
+      showProductDetails,
+      isProductDetailsOpen
     };
   },
 });
@@ -159,33 +233,69 @@ export default defineComponent({
 <template>
   <main class="min-h-screen bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-gray-300 dark:to-gray-400 dark:text-slate-100">
 
-    <header class="bg-emerald-900 w-full h-26 flex justify-between">
+    <transition
+      enter-active-class="transition-opacity duration-700"
+      leave-active-class="transition-opacity duration-700"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
 
-      <div class="w-1/2">
-
-        <v-btn
-          
+      <div
+        v-if="isLoading"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+      >
+        <svg
+          class="animate-spin h-12 w-12 text-white mb-4"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
         >
-          <img src="../../../../imgstorage/logo/robustec.jpg" alt="Logo da Robustec" class="w-full h-full object-contain pb-2"></img>
-        </v-btn>
-
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        </svg>
+        <span class="text-lg font-semibold">Carregando...</span>
       </div>
-
-      <div class="w-2/5">
-
-        <h1>Seja bem-vindo </h1>
-
-        <button>Logout</button>
-
-      </div>
-
-    </header>
+    </transition>
 
     <div class="flex flex-col items-center w-full">
 
-      
-      <!-- título -->
-      <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Lista de Produtos</h2>
+       <div class="bg-emerald-900 w-full h-20"></div>
+
+
+    <header class="mb-10 bg-gray-200 w-full h-28 flex items-center justify-between shadow-md rounded-xl px-8">
+
+        <!-- Logo -->
+        <div class="flex items-center justify-start w-1/3">
+          <img 
+            src="../../../../../imgstorage/logo/robustec.jpg" 
+            alt="Logo" 
+            class="h-28 object-contain mx-auto"
+          >
+        </div>
+
+        <!-- Título central -->
+        <h2 class="text-3xl font-bold text-neutral-950 text-center w-1/3">
+          Lista de Produtos
+        </h2>
+
+        <!-- Ações à direita -->
+        <div class="flex justify-end items-center gap-6 w-1/3">
+
+          <h1 class="text-black font-medium">Produtos</h1>
+
+          <button
+            @click="logout"
+            class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </header>
+
+    <div class="flex justify-between items-center mb-5 gap-x-10">
+
 
       <input
         v-model="search"
@@ -194,27 +304,53 @@ export default defineComponent({
         placeholder="Buscar produto por código..."
         class="p-3 rounded-lg w-80 bg-white text-black font-bold mb-7"
       >
-      </input>
 
-      <div class="flex flex-row mb-15 text-black text-lg gap-8">
-        <select class="select select-md select-ghost" v-model="filterBucha">
-          <option disabled value="">Tipo da bucha</option>
-          <option v-for="bucha in buchas" :value="bucha.tipobucha">{{ bucha.tipobucha }}</option>
-        </select>
-       
-        <select class="select select-md select-ghost" v-model="filterAcionamento">
-          <option disable value="">Tipo do acionamento</option>
-          <option v-for="acionamento in acionamentos">{{ acionamento.tipoacionamento }}</option>
-        </select>
+    </div>
 
-        <select class="select select-md select-ghost" v-model="filterBase">
-          <option disable value="">Tipo da base</option>
-          <option v-for="base in bases">{{ base.tipobase }}</option>
-        </select>
+      <div class="flex flex-col gap-4 mb-15 text-black text-lg">
+  
+        <!-- Linha dos Selects -->
+        <div class="flex flex-row gap-8">
+          <select class="select select-md select-ghost h-12 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 p-3" v-model="filterBucha">
+            <option disabled value="">Tipo da bucha</option>
+            <option v-for="bucha in filteredBuchas" :key="bucha.id" :value="bucha.tipobucha">{{ bucha.tipobucha }}</option>
+          </select>
 
-        <button @click="filterWithParamsHandler" class="flex p-2 hover:text-bold hover:bg-gray-500 hover:border-radius-20">
-          <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 376 384" class="mr-2"><path fill="#000000" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/></svg>
-        Filtrar</button>
+          <select class="select select-md select-ghost h-12 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 p-3" v-model="filterAcionamento">
+            <option disabled value="">Tipo do acionamento</option>
+            <option v-for="acionamento in filteredAcionamentos" :key="acionamento.id" :value="acionamento.tipoacionamento">{{ acionamento.tipoacionamento }}</option>
+          </select>
+
+          <select class="select select-md select-ghost h-12 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 p-3" v-model="filterBase">
+            <option disabled value="">Tipo da base</option>
+            <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">{{ base.tipobase }}</option>
+          </select>
+        </div>
+
+        <!-- Linha dos Botões -->
+        <div class="">
+          <button @click="filterWithParamsHandler()" class="flex w-full items-center justify-center gap-3 h-12 px-4 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 376 384">
+              <path fill="currentColor" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/>
+            </svg>
+            Filtrar
+          </button>
+
+          </div>
+
+          <div class="">
+
+          <button @click="clearFilters()" class="flex w-full items-center justify-center gap-3 h-12 px-4 bg-gray-600 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-gray-700 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            Limpar Filtros
+          </button>
+
+          </div>
+
+
+
       </div>
 
       <!-- grid -->
@@ -225,14 +361,14 @@ export default defineComponent({
           class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md w-80 transition-all duration-300"
         >
           <!-- Foto -->
-          <img src="../../../../imgstorage/products/beaver.webp" alt="" class="object-cover rounded-t-xl h-48 w-full">
+          <img src="../../../../imgstorage/testes/ral.jpg" alt="" class="object-cover rounded-t-xl h-70 w-full">
 
           <!-- Conteúdo -->
           <div class="p-5 flex flex-col space-y-4">
             <!-- Tipo e nome -->
             <div>
               <h1 class="text-emerald-800 text-sm">Novo</h1>
-              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.id_acionamento }}</h1>
+              <h1 class="text-zinc-800 text-xl font-semibold">Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.tipoacionamento }}</h1>
             </div>
 
             <!-- Preço -->
@@ -250,11 +386,108 @@ export default defineComponent({
             </div> -->
 
             <!-- Botão -->
-            <button class="bg-emerald-700 w-full py-3 rounded-lg hover:bg-gray-900 text-white font-bold text-lg">
-              Ver detalhes
-            </button>
+            <button class="font-fira bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-900 text-white font-bold text-lg hover:cursor-pointer" @click="showProductDetails(product)">
+               Ver detalhes
+              </button>  
           </div>
         </div>
+
+
+        <div
+          v-if="isProductDetailsOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
+        >
+          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[60%] max-h-[%90] p-20">
+
+            <button
+              @click="isProductDetailsOpen = false"
+              class="absolute top-4 right-4 text-gray-700 transition-colors p-3 hover:cursor-pointer hover:bg-gray-400 rounded-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                class="w-7 h-7"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <!-- Grid responsiva -->
+            <div class="grid grid-cols-2 gap-4">
+        
+            <!-- Coluna da esquerda: imagens -->
+            <div class="grid grid-rows-2 h-[90%] w-full gap-4">
+              
+              <!-- Imagem principal -->
+              <div class="h-full flex justify-start">
+                <img
+                  :src="selectedImage"
+                  alt="Imagem principal"
+                  class="h-full object-fill rounded transition-all duration-300"
+                />
+              </div>
+
+              <!-- Miniaturas -->
+              <div class="grid grid-cols-3 gap-4 h-full w-4/5">
+                <img
+                  v-for="(img, index) in images"
+                  :key="index"
+                  :src="img"
+                  alt="Miniatura"
+                  class="w-full h-auto object-contain rounded cursor-pointer border-2"
+                  :class="selectedImage === img ? 'border-emerald-700' : 'border-transparent'"
+                  @click="selectedImage = img"
+                />
+              </div>
+              
+            </div>
+
+              
+              <!-- Coluna do Formulário -->
+              <div class="flex flex-col justify-start">
+                <!-- Campos -->
+                <div class="space-y-4">
+                  
+                  <div>
+                    <h1 class="w-full font-fira text-emerald-900 text-2xl font-bold">Pé de Apoio {{ fetchedProduct?.capacidade_estatica }} Kg Acionamento {{ fetchedProduct?.tipoacionamento }} {{ fetchedProduct?.codigo }}</h1>
+                  </div>
+
+                  <div class="mt-10">
+                      <h1 class="w-full font-fira text-gray-600 text-md">{{ fetchedProduct?.description }}</h1>
+                  </div>
+
+                  <div class="mt-10 space-y-4">
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-700 text-md"> <span class="font-semibold text-black">* Capacidade: </span>{{ fetchedProduct?.capacidade_estatica }} kg</h1>
+                  </div>
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Base: </span>{{ fetchedProduct?.tipobase }}</h1>
+                  </div>
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Bucha de fixação: </span>{{ fetchedProduct?.tipobucha }}</h1>
+                  </div>
+
+                  <div>
+                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Acionamento: </span>{{ fetchedProduct?.tipoacionamento }}</h1>
+                  </div>
+
+                  </div>
+
+
+
+                </div>
+
+            </div>
+
+            </div>
+
+            </div>
+
+            <!-- -->
+
+          </div>
 
         <!-- Repita o card ou use v-for -->
         

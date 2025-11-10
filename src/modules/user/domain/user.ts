@@ -19,6 +19,5 @@ export interface CreatedUser {
     id: number
     name: string
     email: string
-    passwordHash: string
     id_user_group: number
 }
