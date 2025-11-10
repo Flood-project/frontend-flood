@@ -61,8 +61,8 @@ interface FilterParams {
   equals?: Record<string, any>
 }
 
-export const filterWithParams = async (params: FilterParams): Promise<ProductWithComponents[]> => {
-  const response = await instance.get<ProductWithComponents[]>(`products/params`, {
+export const filterWithParams = async (params: FilterParams) => {
+  const response = await instance.get(`products/params`, {
     params: {
       [`eq[tipo_bucha]`]: params.tipo_bucha,
       [`eq[tipoacionamento]`]: params.tipoacionamento,
@@ -71,5 +71,13 @@ export const filterWithParams = async (params: FilterParams): Promise<ProductWit
       limit: params.limit ?? 10,
     },
   })
-  return response.data
+  return response.data // <-- garante que retorna o objeto completo
+}
+
+
+export interface FilterResponse {
+  limit: number
+  page: number
+  total: number
+  products_with_params: ProductWithComponents[] | null
 }

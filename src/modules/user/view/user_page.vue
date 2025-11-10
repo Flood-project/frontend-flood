@@ -4,11 +4,14 @@ import { type AccountUser } from '../domain/user';
 import { type EditingUser } from '../domain/user';
 import { type CreatedUser } from '../domain/user';
 import { createUser, getUsers, updateUser } from '../repository/user_repository';
+import { removeAccessTokens } from '../../../services/token';
+import { router } from '../../../router';
 
 
 
 export default defineComponent({
   setup() {
+    
     const users = ref<AccountUser[]>([]);
     const total = ref(0);
     const page = ref(1)
@@ -105,8 +108,15 @@ export default defineComponent({
       }, 400)
     }
 
+    const logout = () => {
+      console.log('ta aqui');
+      
+      removeAccessTokens()
+      router.push({ path: '/' })
+    }
+
     return { 
-    
+    logout,
     users,
     isEditUserModalOpen,
     openEditUserModal,
@@ -138,9 +148,8 @@ export default defineComponent({
 
       <div class="w-2/5 flex justify-end items-center gap-8 text-white mr-auto">
 
-        <h1 class="">Produtos</h1>
 
-        <button class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700">Logout</button>
+        <button @click="logout()" class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700">Logout</button>
 
       </div>
 
