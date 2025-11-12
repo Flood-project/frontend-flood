@@ -43,7 +43,7 @@ const router = createRouter({
             path: '/catalogo',
             name: 'catalogo',
             component: Home_catalog,
-            meta: { requiresAuth: true, role: 2} //apenas grupo usuário 2 com token pode acessar a rota
+            meta: { requiresAuth: true, roles: [2, 3] }  //apenas grupo usuário 2 com token pode acessar a rota
         },
         {
             path: '/admin/catalog',

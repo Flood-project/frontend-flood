@@ -3,26 +3,31 @@ import { defineComponent, ref, onMounted } from 'vue'
 import { type AccountUser } from '../domain/user';
 import { type EditingUser } from '../domain/user';
 import { type CreatedUser } from '../domain/user';
-import { createUser, getUsers, updateUser } from '../repository/user_repository';
+import { createUser, getUsers, updateUser, withParams } from '../repository/user_repository';
 import { removeAccessTokens } from '../../../services/token';
 import { router } from '../../../router';
+import { useRouter } from "vue-router";
+import { getClaims } from "../../../services/jwt_decoder";
+
 
 
 
 export default defineComponent({
   setup() {
+
+    const confirmedPassword = ref("");
     
     const users = ref<AccountUser[]>([]);
     const total = ref(0);
     const page = ref(1)
     const limit = ref(10);
-    const loading = ref(false);
+    const loading = ref(true);
     const search = ref("");
     let timeout: number | undefined
 
     const newUser = ref<CreatedUser | null>(null);
 
-    newUser.value = { id: 0, name: "", email: "", id_user_group: 0, passwordHash: ""};
+    newUser.value = { name: "", email: "", id_user_group: 0, passwordHash: ""};
 
 
     const editingUser = ref<EditingUser | null>(null);
@@ -37,16 +42,79 @@ export default defineComponent({
     
     const isAddUserModalOpen = ref (false);
 
+    const passwordError = ref("");
+
     function openAddUserModal() {
       isAddUserModalOpen.value = true
     }
 
+    const validatePassword = (pwd: string): { valid: boolean; error: string } => {
+      if (!pwd) {
+        return { valid: false, error: "A senha é obrigatória." };
+      }
+      
+      if (pwd.length < 6) {
+        return { valid: false, error: "A senha deve ter pelo menos 6 caracteres." };
+      }
+      
+      if (!/[A-Z]/.test(pwd)) {
+        return { valid: false, error: "A senha deve conter pelo menos 1 letra maiúscula." };
+      }
+      
+      if (!/[0-9]/.test(pwd)) {
+        return { valid: false, error: "A senha deve conter pelo menos 1 número." };
+      }
+      
+      return { valid: true, error: "" };
+    };
+
     const addUser = async (newUser: CreatedUser) => {
-      console.log(newUser, "antes de chamar create product");
-      if (newUser) {
+      // Limpar todos os erros
+      passwordError.value = "";
+      
+      // Validação 1: Senhas coincidem?
+      if (newUser.passwordHash !== confirmedPassword.value) {
+        passwordError.value = "As senhas não coincidem.";
+        return;
+      }
+
+      // Validação 2: Senha forte?
+      const validation = validatePassword(newUser.passwordHash);
+      if (!validation.valid) {
+        passwordError.value = validation.error;
+        return;
+      }
+
+      // Validação 3: Email válido?
+      if (!newUser.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) {
+        passwordError.value = "Email inválido.";
+        return;
+      }
+
+      // Tudo OK, criar usuário
+      try {
+        loading.value = true;
         await createUser(newUser);
-        console.log(newUser, "depois de chamar create product")
-        isAddUserModalOpen.value = false // fecha modal/edição
+        
+        // Sucesso!
+        isAddUserModalOpen.value = false;
+        confirmedPassword.value = "";
+        newUser.passwordHash = ""; // Limpar senha também
+        
+        alert("Usuário criado com sucesso!");
+        
+      } catch (error: any) {
+        if (error.response?.status === 409) {
+          passwordError.value = "Este email já está cadastrado.";
+        } else if (error.response?.data?.message) {
+          passwordError.value = error.response.data.message;
+        } else {
+          passwordError.value = "Erro ao criar usuário. Tente novamente.";
+        }
+        console.error("Erro ao criar usuário:", error);
+        
+      } finally {
+        loading.value = false;
       }
     };
 
@@ -75,11 +143,12 @@ export default defineComponent({
           limit: 10,
           ...options
         });
+
         console.log(data);
-        products.value = data.products_with_params
+        users.value = data.users_with_params
         page.value = data.page
         limit.value = data.limit
-        return data.products_with_params
+        return data.users_with_params
       } catch (err) {
         console.log("Erro ao listar com parâmetros, ", err)
         return []
@@ -97,8 +166,23 @@ export default defineComponent({
       }
     };
 
-    onMounted(() => {
+    const redirectToProducts = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 3) {
+          await router.push({path: '/catalogo'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
+    onMounted( async () => {
       fetchUsers();
+      users.value = await usersWithParams({ page: page.value, limit: limit.value });
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      loading.value = false
     });
 
     const onSearch = () => {
@@ -116,6 +200,7 @@ export default defineComponent({
     }
 
     return { 
+    loading,
     logout,
     users,
     isEditUserModalOpen,
@@ -127,7 +212,10 @@ export default defineComponent({
     isAddUserModalOpen,
     openAddUserModal,
     addUser,
-    newUser
+    newUser,
+    confirmedPassword,
+    passwordError,
+    redirectToProducts
 
     }
 
@@ -138,63 +226,121 @@ export default defineComponent({
 <template>
   <main class="min-h-screen bg-gradient-to-b from-orange-200 to-orange-850 text-emerald-950 dark:from-gray-300 dark:to-gray-400 dark:text-slate-100">
 
-    <header class="bg-emerald-900 w-full h-26 flex justify-between">
+    <transition
+      enter-active-class="transition-opacity duration-700"
+      leave-active-class="transition-opacity duration-700"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
 
-      <div class="w-1/2">
-
-        <img src="../../../../../imgstorage/logo/robustec.jpg" alt="" class="w-full h-full object-contain pb-2 ml-auto">
-
+      <div
+        v-if="loading"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+      >
+        <svg
+          class="animate-spin h-12 w-12 text-white mb-4"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        </svg>
+        <span class="text-lg font-semibold">Carregando...</span>
       </div>
-
-      <div class="w-2/5 flex justify-end items-center gap-8 text-white mr-auto">
-
-
-        <button @click="logout()" class="bg-emerald-950 b-10 p-2 rounded-lg border-black hover:cursor-pointer hover:bg-stone-700">Logout</button>
-
-      </div>
-
-    </header>
+    </transition>
 
     <div class="flex flex-col items-center w-full">
 
-      
-      <!-- título -->
-      <h2 class="mb-10 text-3xl font-bold text-center text-neutral-950 mt-10">Gerenciar Usuários</h2>
+       <div class="bg-emerald-900 w-full h-20"></div>
 
-      <div class="flex justify-between items-center mb-10 gap-x-10">
 
-        <input
-          v-model="search"
-          @input="onSearch"
-          type="text"
-          placeholder="Buscar usuário por nome..."
-          class="p-3 rounded-lg w-80 bg-white text-black font-bold"
-        />
+    <header class="mb-10 bg-gray-200 w-full h-28 flex items-center justify-center shadow-md rounded-xl px-8">
 
-        <button
-          @click="openAddUserModal()"
-          class="h-12 bg-emerald-900 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 p-3"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          Novo Usuário
-        </button>
+      <div class="w-full max-w-screen-2xl px-4 flex items-center justify-between">
+
+          <!-- Logo -->
+          <div class="flex items-center justify-start">
+            <img 
+              src="../../../../../imgstorage/logo/robustec.jpg" 
+              alt="Logo" 
+              class="h-28 object-contain mx-auto"
+            >
+          </div>
+
+          <!-- Título central -->
+          <h2 class="text-3xl font-bold text-neutral-950 text-center flex-1">
+            Gerenciar Usuários
+          </h2>
+
+          <!-- Ações à direita -->
+          <div class="flex justify-end items-center gap-6">
+
+            <button
+              @click="redirectToProducts"
+              class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+            >
+              Visualizar Produtos
+            </button>
+
+            <button
+              @click="logout"
+              class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+            >
+              Logout
+            </button>
+
+          </div>
+
+        </div>
+
+      </header>
+
+      <div class="w-full max-w-screen-2xl px-4 mx-auto">
+
+        <!-- Título alinhado -->
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-black">Lista de Usuários</h2>
+        </div>
 
       </div>
 
       <!-- grid -->
-      <div id="user-container" class="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-y-3 justify-items-center w-full max-w-7xl">
+      <div id="user-container" class="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-y-3 justify-items-center w-full max-w-screen-2xl mx-auto">
         
         <!-- card exemplo -->
         <div class="w-full overflow-x-auto bg-white dark:bg-gray-600 rounded-xl shadow-lg p-6">
-          <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Lista de Usuários</h2>
+
+          <div class="flex justify-between mb-3">
+
+            <input
+              v-model="search"
+              @input="onSearch"
+              type="text"
+              placeholder="Buscar usuário por nome..."
+              class="p-3 rounded-lg w-80 bg-gray-300 text-black font-bold ring-2"
+            />
+
+          <button
+            @click="openAddUserModal()"
+            class="h-10 bg-emerald-700 font-semibold text-white rounded-sm hover:cursor-pointer hover:bg-emerald-800 flex items-center gap-3 p-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            Novo Usuário
+          </button>
+
+          </div>
 
           <table class="min-w-full border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
             <thead class="bg-gray-200 dark:bg-gray-700">
               <tr>
                 <th class="px-4 py-2 text-left text-gray-800 dark:text-gray-100 font-semibold">
                   Nome do Usuário
+                </th>
+                <th class="px-4 py-2 text-left text-gray-800 dark:text-gray-100 font-semibold">
+                  Email
                 </th>
                 <th class="px-4 py-2 text-left text-gray-800 dark:text-gray-100 font-semibold">
                   Tipo de Usuário
@@ -215,17 +361,20 @@ export default defineComponent({
                   {{ user.name }}
                 </td>
                 <td class="px-4 py-2 text-gray-700 dark:text-gray-300">
+                  {{ user.email }}
+                </td>
+                <td class="px-4 py-2 text-gray-700 dark:text-gray-300">
                   {{ user.group_name }}
                 </td>
                 <td class="px-4 py-2 text-center">
                   <button
-                    class="bg-emerald-600 text-white px-3 py-1 rounded-lg hover:bg-emerald-700 transition-colors mr-2 hover:cursor-pointer" @click="openEditUserModal(user)"
+                    class="bg-emerald-700 text-white px-3 py-1 rounded-lg hover:bg-emerald-800 transition-colors mr-2 hover:cursor-pointer" @click="openEditUserModal(user)"
                   >
                     Editar
                   </button>
                   <button
                     @click="deleteUser(user.id)"
-                    class="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors"
+                    class="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors hover:cursor-pointer"
                   >
                     Excluir
                   </button>
@@ -235,147 +384,318 @@ export default defineComponent({
           </table>
         </div>
 
-        <div
+       <div
           v-if="isAddUserModalOpen"
-          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-opacity-20 bg-black/60"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 z-50 p-4"
         >
-          <div class="relative bg-emerald-900 p-8 rounded-xl shadow-lg w-[95%] max-w-5xl">
-            <h3 class="text-2xl font-semibold mb-4">Novo Usuário</h3>
-
-            <button
+          <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            
+            <!-- Header do Modal -->
+            <div class="bg-emerald-800/50 px-6 py-5 border-b border-emerald-700/50">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-2xl font-bold text-white">Novo Usuário</h3>
+                  <p class="text-emerald-200 text-sm mt-1">Crie uma nova conta de usuário</p>
+                </div>
+                <button
                   @click="isAddUserModalOpen = false"
-                  class="absolute top-4 right-4 text-white transition-colors p-3 hover:cursor-pointer hover:bg-emerald-800 rounded-lg"
+                  class="text-white/80 hover:cursor-pointer hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+                  :disabled="loading"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                    viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                    class="w-7 h-7"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-
-            <!-- Container do formulário -->
-            <div class="grid grid-cols-1 gap-4">
-              <!-- Coluna 1 -->
-              <div>
-                <div class="mb-3">
-                  <label class="block text-sm font-medium mb-1 text-white">Nome</label>
-                  <input
-                    v-model="newUser!.name"
-                    type="text"
-                    placeholder="Insira o nome"
-                    class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-
-
-                <div class="mb-3">
-                  <label class="block text-sm font-medium mb-1 text-white">Email</label>
-                  <input
-                    v-model="newUser!.email"
-                    type="text"
-                    placeholder="Insira o email"
-                    class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-
-                <div class="mb-3">
-                  <label class="block text-sm font-medium mb-1 text-white">Cargo</label>
-                  <input
-                    v-model="newUser!.id_user_group"
-                    type="text"
-                    placeholder="Insira o tipo de cargo"
-                    class="w-full border border-emerald-700 rounded px-3 py-2 bg-emerald-950 text-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                  />
-                </div>
-
               </div>
-
             </div>
 
-            <!-- Linha inferior com curso + botões -->
-            <div class="grid grid-cols-2 items-center mt-4 gap-3">
-              <!-- Campo curso à esquerda -->
-              <div class="col-span-2">
-                <label class="block text-sm font-medium mb-1">Teste</label>
-                <textarea
-                  v-model="newUser!.email"
-                  placeholder="teste"
-                  class="w-full border rounded px-3 py-2 bg-emerald-950 text-white resize-y min-h-[100px]"
-                ></textarea>
+            <!-- Conteúdo -->
+            <div class="px-6 py-6 space-y-6">
+              
+              <!-- Seção: Informações Pessoais -->
+              <div>
+                <h4 class="text-lg font-semibold text-emerald-200 mb-4 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  Informações Pessoais
+                </h4>
+                
+                <div class="space-y-4">
+                  <!-- Nome -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Nome Completo <span class="text-red-400">*</span>
+                    </label>
+                    <input
+                      v-model="newUser!.name"
+                      type="text"
+                      placeholder="Ex: João Silva"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      :disabled="loading"
+                    />
+                  </div>
+
+                  <!-- Email -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Email <span class="text-red-400">*</span>
+                    </label>
+                    <input
+                      v-model="newUser!.email"
+                      type="email"
+                      placeholder="Ex: joao.silva@empresa.com"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      :disabled="loading"
+                    />
+                  </div>
+
+                  <!-- Cargo -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Nível de Acesso <span class="text-red-400">*</span>
+                    </label>
+                    <select
+                      v-model="newUser!.id_user_group"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      :disabled="loading"
+                    >
+                      <option value="" disabled class="bg-emerald-800 text-white">Selecione o nível de acesso</option>
+                      <option value="1" class="bg-emerald-800 text-white hover:cursor-pointer">Administrador</option>
+                      <option value="2" class="bg-emerald-800 text-white hover:cursor-pointer">Usuário Normal</option>
+                      <option value="3" class="bg-emerald-800 text-white hover:cursor-pointer">Comercial</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <!-- Botões à direita -->
-              <div class="col-span-2 flex justify-end gap-2">
+              <!-- Seção: Segurança -->
+              <div>
+                <h4 class="text-lg font-semibold text-emerald-200 mb-4 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  Segurança
+                </h4>
+
+                <div class="space-y-4">
+                  <!-- Senha -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Senha <span class="text-red-400">*</span>
+                    </label>
+                    <input
+                      v-model="newUser!.passwordHash"
+                      type="password"
+                      placeholder="Mínimo 6 caracteres, 1 maiúscula e 1 número"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      :disabled="loading"
+                    />
+                  </div>
+                  
+                  <!-- Confirmar Senha -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Confirmar Senha <span class="text-red-400">*</span>
+                    </label>
+                    <input
+                      v-model="confirmedPassword"
+                      type="password"
+                      placeholder="Digite a senha novamente"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      :disabled="loading"
+                    />
+                  </div>
+
+                  <!-- Requisitos de senha -->
+                  <div class="bg-emerald-950/30 border border-emerald-700/30 rounded-lg p-4">
+                    <p class="text-emerald-200 text-xs font-medium mb-2">A senha deve conter:</p>
+                    <ul class="space-y-1 text-emerald-300 text-xs">
+                      <li class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        Mínimo de 6 caracteres
+                      </li>
+                      <li class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        Pelo menos 1 letra maiúscula
+                      </li>
+                      <li class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        Pelo menos 1 número
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mensagem de Erro -->
+              <div v-if="passwordError" class="bg-red-500/20 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p class="text-red-200 text-sm font-medium">Erro na validação</p>
+                  <p class="text-red-200/80 text-sm mt-1">{{ passwordError }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer com botões -->
+            <div class="bg-emerald-800/30 px-6 py-4 border-t border-emerald-700/50 flex justify-between items-center">
+              <p class="text-emerald-300 text-sm">
+                <span class="text-red-400">*</span> Campos obrigatórios
+              </p>
+              <div class="flex gap-3">
                 <button
                   @click="isAddUserModalOpen = false"
-                  class="px-4 py-2 rounded bg-gray-500 hover:bg-gray-400 hover:cursor-pointer"
+                  class="px-5 hover:cursor-pointer py-2.5 rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="loading"
                 >
                   Cancelar
                 </button>
                 <button
-                  @click="addUser(newUser!), isAddUserModalOpen = false"
-                  class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
+                  @click="addUser(newUser!)"
+                  class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[120px] justify-center"
+                  :disabled="loading"
                 >
-                  Salvar
+                  <svg v-if="loading" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                  {{ loading ? 'Salvando...' : 'Criar Usuário' }}
                 </button>
               </div>
             </div>
+
           </div>
         </div>
 
         <div
           v-if="isEditUserModalOpen"
-          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 z-50 p-4"
         >
-          <div class="bg-emerald-900 p-6 rounded-lg shadow-lg w-[95%] max-w-4xl">
-            <h3 class="text-lg font-semibold mb-4 text-white">Editar Usuário</h3>
-
-            <!-- Grid responsiva -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Nome</label>
-                <input
-                  v-model="editingUser!.name"
-                  type="text"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Email</label>
-                <input
-                  v-model="editingUser!.email"
-                  type="text"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-white">Tipo de Usuário</label>
-                <input
-                  v-model="editingUser!.id_user_group"
-                  type="number"
-                  class="w-full border rounded px-2 py-1 bg-emerald-950"
-                />
+          <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            
+            <!-- Header do Modal -->
+            <div class="bg-emerald-800/50 px-6 py-5 border-b border-emerald-700/50">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-2xl font-bold text-white">Editar Usuário</h3>
+                  <p class="text-emerald-200 text-sm mt-1">Atualize as informações do usuário</p>
+                </div>
+                <button
+                  @click="isEditUserModalOpen = false"
+                  class="text-white/80 hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </div>
 
-            <!-- Botões -->
-            <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
-              <button
-                @click="isEditUserModalOpen = false"
-                class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-black hover:cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                @click="editUser(editingUser), isEditUserModalOpen = false"
-                class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 hover:cursor-pointer"
-              >
-                Salvar
-              </button>
+            <!-- Conteúdo -->
+            <div class="px-6 py-6 space-y-6">
+              
+              <!-- Seção: Informações do Usuário -->
+              <div>
+                <h4 class="text-lg font-semibold text-emerald-200 mb-4 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  Informações do Usuário
+                </h4>
+                
+                <div class="space-y-4">
+                  <!-- Nome -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Nome Completo <span class="text-red-400">*</span>
+                    </label>
+                    <input
+                      v-model="editingUser!.name"
+                      type="text"
+                      placeholder="Ex: João Silva"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+
+                  <!-- Email -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Email <span class="text-red-400">*</span>
+                    </label>
+                    <input
+                      v-model="editingUser!.email"
+                      type="email"
+                      placeholder="Ex: joao.silva@empresa.com"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+
+                  <!-- Nível de Acesso -->
+                  <div>
+                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                      Nível de Acesso <span class="text-red-400">*</span>
+                    </label>
+                    <select
+                      v-model="editingUser!.id_user_group"
+                      class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    >
+                      <option value="" disabled class="bg-emerald-800 text-white">Selecione o nível de acesso</option>
+                      <option value="1" class="bg-emerald-800 text-white hover:cursor-pointer">Administrador</option>
+                      <option value="2" class="bg-emerald-800 text-white hover:cursor-pointer">Usuário Normal</option>
+                      <option value="3" class="bg-emerald-800 text-white hover:cursor-pointer">Comercial</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Informação sobre senha -->
+              <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                <div>
+                  <p class="text-blue-200 text-sm font-medium">Alteração de senha</p>
+                  <p class="text-blue-200/80 text-xs mt-1">A senha não pode ser alterada por aqui. Para redefinir a senha, use a função "Redefinir Senha".</p>
+                </div>
+              </div>
             </div>
+
+            <!-- Footer com botões -->
+            <div class="bg-emerald-800/30 px-6 py-4 border-t border-emerald-700/50 flex justify-between items-center">
+              <p class="text-emerald-300 text-sm">
+                <span class="text-red-400">*</span> Campos obrigatórios
+              </p>
+              <div class="flex gap-3">
+                <button
+                  @click="isEditUserModalOpen = false"
+                  class="px-5 py-2.5 rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  @click="editUser(editingUser), isEditUserModalOpen = false"
+                  class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                  Atualizar Usuário
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
 

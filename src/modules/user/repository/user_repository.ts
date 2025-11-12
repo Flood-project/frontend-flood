@@ -1,4 +1,4 @@
-import { instance } from "../../../services/axios";
+import { getWithPagination, instance } from "../../../services/axios";
 import { type AccountUser } from "../domain/user";
 import { type CreatedUser } from '../domain/user';
 
@@ -23,4 +23,18 @@ export async function createUser (accountUser: CreatedUser) {
   const response = await instance.post(`/accounts`, accountUser);
   console.log(accountUser, "chamando create create User")
   if (response.status != 200) throw new Error("Erro ao adicionar usuário");
+}
+
+interface Options {
+  page?: 1, 
+  limit?: 10, 
+  search?: Record<string, any>,
+  total?: 0,
+  equals?: Record<string, any>
+}
+
+
+export const withParams = async (options: Options = {}): Promise<AccountUser[]> => {
+  const response = await getWithPagination<AccountUser[]>(`accounts/groupid`, options);
+  return response
 }
