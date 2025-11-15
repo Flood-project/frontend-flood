@@ -142,6 +142,9 @@ export default defineComponent({
     const isLoadingDetails = ref(false);
 
     const showProductDetails = async (p: Product) => {
+      selectedProduct.value = p
+      selectedImage.value = p.images[0]?.url || ''
+
       try {
         isLoadingDetails.value = true;
 
@@ -230,7 +233,8 @@ export default defineComponent({
     };
     
 
-    const selectedImage = ref(images.value[0]);
+    const selectedImage = ref(null);
+    const selectedProduct = ref(null)
 
     const logout = () => {
       console.log('ta aqui');
@@ -266,7 +270,8 @@ export default defineComponent({
       showProductDetails,
       isProductDetailsOpen,
       showUserManagment,
-      redirectToUserManagment
+      redirectToUserManagment,
+      selectedProduct
     };
   },
 });
@@ -448,8 +453,16 @@ export default defineComponent({
               class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
             >
               <!-- Foto -->
-              <img src="../../../../../imgstorage/testes/ral.jpg" alt="" class="object-cover rounded-t-xl h-90 w-full">
-
+              <div v-if="product.images && product.images.length > 0">
+                <img 
+                  :src="product.images[0].url" 
+                  :alt="product.images[0].file_name"
+                >
+                <!-- class for images if too big: class="w-full h-100 object-cover" -->
+              </div>
+              <div v-else class="w-full h-48 bg-gray-200 rounded-t-xl flex items-center justify-center">
+                <span class="text-gray-500">Sem imagem</span>
+              </div>
               <!-- Conteúdo -->
               <div class="p-5 flex flex-col space-y-4">
                 <!-- Tipo e nome -->
@@ -504,7 +517,7 @@ export default defineComponent({
           v-if="isProductDetailsOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
         >
-          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[60%] max-h-[%90] p-20">
+          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[70%] max-h-[%90] p-20">
 
             <button
               @click="isProductDetailsOpen = false"
@@ -522,27 +535,27 @@ export default defineComponent({
             <div class="grid grid-cols-2 gap-4">
         
             <!-- Coluna da esquerda: imagens -->
-            <div class="grid grid-rows-2 h-[90%] w-full gap-4">
+            <div class="flex flex-col h-[500px] w-full gap-4">
               
               <!-- Imagem principal -->
-              <div class="h-full flex justify-start">
+              <div class="flex-1 flex justify-start items-start rounded-lg p-2 min-h-0" >
                 <img
-                  :src="selectedImage"
+                  :src="selectedImage || selectedProduct.images[0]?.url"
                   alt="Imagem principal"
-                  class="h-full object-fill rounded transition-all duration-300"
+                  class="h-full max-h-full w-auto object-fill rounded transition-all duration-300"
                 />
               </div>
 
               <!-- Miniaturas -->
-              <div class="grid grid-cols-3 gap-4 h-full w-4/5">
+              <div class="h-24 flex justify-start items-center gap-2">
                 <img
-                  v-for="(img, index) in images"
-                  :key="index"
-                  :src="img"
+                  v-for="(img, index) in selectedProduct.images"
+                  :key="img.id || index"
+                  :src="img.url"
                   alt="Miniatura"
-                  class="w-full h-auto object-contain rounded cursor-pointer border-2"
-                  :class="selectedImage === img ? 'border-emerald-700' : 'border-transparent'"
-                  @click="selectedImage = img"
+                  class="h-20 w-auto object-contain rounded cursor-pointer transition-all border-2"
+                  :class="selectedImage === img.url ? 'border-emerald-700' : 'border-transparent'"
+                  @click="selectedImage = img.url"
                 />
               </div>
               

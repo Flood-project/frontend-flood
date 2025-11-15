@@ -12,6 +12,7 @@ import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../rep
 import type { ProductWithComponents } from "../../domain/productWithComponents";
 import { removeAccessTokens } from "../../../../services/token";
 import { router } from "../../../../router";
+import { createFile } from "../../../object_store/repository/object_store_repository";
 
 
 export default defineComponent({
@@ -249,7 +250,10 @@ export default defineComponent({
       { label: "Bases", action: addBase },
     ]);
 
+    const productId = ref(0)
     function openEditModal(product: Product) {
+      productId.value = product.id
+      
       editingProduct.value = {
         ...product,
         tipoacionamento: acionamentoMap.value[product.id_acionamento] || "Desconhecido",
@@ -266,6 +270,9 @@ export default defineComponent({
     const isLoadingDetails = ref(false);
 
     const showProductDetails = async (p: Product) => {
+      selectedProduct.value = p
+      selectedImage.value = p.images[0]?.url || ""
+
       try {
         isLoadingDetails.value = true;
 
@@ -408,13 +415,29 @@ export default defineComponent({
     };
 
 
-    const selectedImage = ref(images.value[0]);
+    const selectedImage = ref(null);
+    const selectedProduct = ref(null)
    
     const logout = () => {
-      console.log('ta aqui');
-      
       removeAccessTokens()
       router.push({ path: '/' })
+    }
+
+    const handleFileInput = (event) => {
+      const file = event.target.files[0]
+      if (file) {
+        selectedImage.value = file
+        uploadFile(selectedImage.value)
+      }
+    }
+
+    const uploadFile = async (selectedImage) => {
+      try {
+        await createFile(selectedImage, productId.value)
+        await productsWithParams({page: page.value,  limit: limit.value})
+      } catch (error) {
+        console.error('Erro no upload:', error)
+      } 
     }
 
     onMounted(async () => {
@@ -484,7 +507,9 @@ export default defineComponent({
       filterWithParamsHandler,
       filterAcionamento,
       filterBase,
-      logout
+      logout,
+      handleFileInput,
+      selectedProduct
     };
   },
 });
@@ -696,8 +721,18 @@ export default defineComponent({
             <div v-for="product in products" :key="product.id"
               class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
             >
+              <div v-if="product.images && product.images.length > 0">
+                <img 
+                  :src="product.images[0].url" 
+                  :alt="product.images[0].file_name"
+                >
+                <!-- class for images if too big: class="w-full h-100 object-cover" -->
+              </div>
+              <div v-else class="w-full h-48 bg-gray-200 rounded-t-xl flex items-center justify-center">
+                <span class="text-gray-500">Sem imagem</span>
+              </div>
               <!-- Foto -->
-              <img src="../../../../../imgstorage/testes/ral.jpg" alt="" class="object-cover rounded-t-xl h-90 w-full">
+              <!-- <img v-for="image in product.images" :src="image.url" :alt="image.url" class="object-cover rounded-t-xl h-90 w-full"> -->
 
               <!-- Conteúdo -->
               <div class="p-5 flex flex-col space-y-4">
@@ -1080,6 +1115,15 @@ export default defineComponent({
                 </div>
               </div>
 
+              <!-- seção input -->
+               <div>
+                <input 
+                  type="file" 
+                  class="w-50% px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all mb-3"
+                  @change="(event) => handleFileInput(event)"
+                >
+               </div>
+
               <!-- Seção: Descrição -->
               <div>
                 <h4 class="text-lg font-semibold text-emerald-200 mb-4 flex items-center gap-2">
@@ -1145,27 +1189,27 @@ export default defineComponent({
             <div class="grid grid-cols-2 gap-4">
         
             <!-- Coluna da esquerda: imagens -->
-            <div class="grid grid-rows-2 h-[90%] w-full gap-4">
+            <div class="flex flex-col h-[500px] w-full gap-4">
               
               <!-- Imagem principal -->
-              <div class="h-full flex justify-start">
+              <div class="flex-1 flex justify-start items-start rounded-lg p-2 min-h-0" >
                 <img
-                  :src="selectedImage"
+                  :src="selectedImage || selectedProduct.images[0]?.url"
                   alt="Imagem principal"
-                  class="h-full object-fill rounded transition-all duration-300"
+                  class="h-full max-h-full w-auto object-fill rounded transition-all duration-300"
                 />
               </div>
 
               <!-- Miniaturas -->
-              <div class="grid grid-cols-3 gap-4 h-full w-4/5">
+              <div class="h-24 flex justify-start items-center gap-2">
                 <img
-                  v-for="(img, index) in images"
-                  :key="index"
-                  :src="img"
+                  v-for="(img, index) in selectedProduct.images"
+                  :key="img.id || index"
+                  :src="img.url"
                   alt="Miniatura"
-                  class="w-full h-auto object-contain rounded cursor-pointer border-2"
-                  :class="selectedImage === img ? 'border-emerald-700' : 'border-transparent'"
-                  @click="selectedImage = img"
+                  class="h-20 w-auto object-contain rounded cursor-pointer transition-all border-2"
+                  :class="selectedImage === img.url ? 'border-emerald-700' : 'border-transparent'"
+                  @click="selectedImage = img.url"
                 />
               </div>
               
@@ -1533,6 +1577,14 @@ export default defineComponent({
                   rows="4"
                   class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none"
                 ></textarea>
+              </div>
+
+              <div>
+                <input 
+                  type="file" 
+                  class="w-50% px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all mb-3"
+                  @change="(event) => handleFileInput(event)"
+                >
               </div>
             </div>
 
