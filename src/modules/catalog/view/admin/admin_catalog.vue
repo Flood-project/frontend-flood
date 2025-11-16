@@ -5,13 +5,14 @@ import type { Base } from "../../domain/base";
 import type { Acionamento } from "../../domain/acionamento"; 
 import type { Bucha } from "../../domain/bucha"; 
 import { useRouter } from "vue-router";
-import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById, withParams, filterWithParams, FilterResponse } from "../../repository/product_repository";
+import { fetchProducts, updateProduct, deleteProductById, createProduct, fetchById, withParams, filterWithParams } from "../../repository/product_repository";
 import { fetchAcionamentoById, fetchAcionamentos, createAcionamento, deleteAcionamentoById } from "../../repository/acionamento_repository"
 import { fetchBuchas, createBucha, deleteBuchaById } from "../../../bucha/repository/bucha_repository"
 import { fetchBases, fetchBaseById, createBase, deleteBaseById } from "../../repository/base_repository"
 import type { ProductWithComponents } from "../../domain/productWithComponents";
 import { removeAccessTokens } from "../../../../services/token";
 import { router } from "../../../../router";
+import { getClaims } from "../../../../services/jwt_decoder";
 
 
 export default defineComponent({
@@ -68,6 +69,22 @@ export default defineComponent({
     newBase.value = { id: 0, tipobase: ""};
 
     newAcionamento.value = { id: 0, tipoacionamento: ""};
+
+    const isBuchaFilterWithValue = computed(() => {
+      return filterBucha.value !== "" && filterBucha.value !== null && filterBucha.value !== undefined;
+    });
+
+    const isAcionamentoFilterWithValue = computed(() => {
+      return filterAcionamento.value !== "" && filterAcionamento.value !== null && filterAcionamento.value !== undefined;
+    });
+
+    const isBaseFilterWithValue = computed(() => {
+      return filterBase.value !== "" && filterBase.value !== null && filterBase.value !== undefined;
+    });
+
+    const hasAnyFilter = computed(() => {
+      return !!(filterBucha.value || filterAcionamento.value || filterBase.value);
+    });
 
     const acionamentoMap = computed<Record<number, string>>(() => {
       const map: Record<number, string> = {};
@@ -207,39 +224,53 @@ export default defineComponent({
       isAdicionarOpen.value = false;
     }
 
+    const errorMessageAcionamento = ref('');
+    const errorMessageBucha = ref('');
+    const errorMessageBase = ref('');
+
     const addBucha = async (newBucha: Bucha) => {
 
+      errorMessageBucha.value = '';
+      
       isAddBuchaModalOpen.value = true;
-
-      console.log(newProduct, "antes de chamar create bucha");
-      if (newBucha) {
-        await createBucha(newBucha);
-        console.log(newBucha, "depois de chamar create bucha")
-        isAddModalOpen.value = false // fecha modal/edição
+      
+      if (!newBucha.tipobucha || newBucha.tipobucha .trim() === '') {
+        errorMessageBucha.value = 'O tipo da bucha é obrigatório.';
+        return;
       }
+
+      await createBucha(newBucha);
+      isAddBuchaModalOpen.value = false;
     };
 
     const addAcionamento = async (newAcionamento: Acionamento) => {
 
-      isAddAcionamentoModalOpen.value = true;
+      errorMessageAcionamento.value = '';
 
-      console.log(newProduct, "antes de chamar create acionamento");
-      if (newAcionamento) {
-        await createAcionamento(newAcionamento);
-        console.log(newAcionamento, "depois de chamar create acionamento")
-        isAddModalOpen.value = false // fecha modal/edição
+      isAddAcionamentoModalOpen.value = true;
+      
+      if (!newAcionamento.tipoacionamento || newAcionamento.tipoacionamento.trim() === '') {
+        errorMessageAcionamento.value = 'O tipo do acionamento é obrigatório.';
+        return;
       }
+
+      await createAcionamento(newAcionamento);
+      isAddAcionamentoModalOpen.value = false;
     };
 
     const addBase = async (newBase: Base) => {
 
+      errorMessageBase.value = '';
+
       isAddBaseModalOpen.value = true;
-      console.log(newProduct, "antes de chamar create base");
-      if (newBase) {
-        await createBase(newBase);
-        console.log(newBase, "depois de chamar create base")
-        isAddModalOpen.value = false // fecha modal/edição
+      
+      if (!newBase.tipobase || newBase.tipobase.trim() === '') {
+        errorMessageBase.value = 'O tipo da base é obrigatório.';
+        return;
       }
+
+      await createBase(newBase);
+      isAddBaseModalOpen.value = false;
     };
 
       const addOptions = ref([
@@ -260,8 +291,11 @@ export default defineComponent({
     }
 
     function openAddModal() {
+      newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0};
       isAddModalOpen.value = true
     }
+
+    
 
     const isLoadingDetails = ref(false);
 
@@ -350,9 +384,11 @@ export default defineComponent({
       }
     }
 
+    const isLoadingFilters = ref (false);
+
      const filterWithParamsHandler = async () => {
       try {
-        isLoading.value = true;
+        isLoadingFilters.value = true;
 
         // Log para debug
         console.log('Filtros aplicados:', {
@@ -389,7 +425,7 @@ export default defineComponent({
             console.error('Erro ao filtrar produtos:', error);
             products.value = []; // Limpar em caso de erro
           } finally {
-            isLoading.value = false;
+            isLoadingFilters.value = false;
           }
         }
 
@@ -409,6 +445,18 @@ export default defineComponent({
 
 
     const selectedImage = ref(images.value[0]);
+
+    const redirectToLogs = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/logs'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
    
     const logout = () => {
       console.log('ta aqui');
@@ -428,6 +476,12 @@ export default defineComponent({
     });
 
     return {
+      isLoadingFilters,
+      isBuchaFilterWithValue,
+      isBaseFilterWithValue,
+      isAcionamentoFilterWithValue,
+      hasAnyFilter,
+      redirectToLogs,
       isLoadingDetails,
       clearFilters,
       isLoading,
@@ -449,6 +503,9 @@ export default defineComponent({
       isProductDetailsOpen,
       addBucha,
       addAcionamento,
+      errorMessageAcionamento,
+      errorMessageBucha,
+      errorMessageBase,
       addBase,
       toggleAddMenu,
       selectAddOption,
@@ -520,8 +577,6 @@ export default defineComponent({
 
     <div class="flex flex-col items-center w-full">
 
-      <div class="bg-emerald-900 w-full h-20"></div>
-
      <header class="mb-10 bg-gray-200 w-full h-28 flex items-center justify-center shadow-md rounded-xl px-8">
 
         <div class="w-full max-w-screen-2xl px-4 flex items-center justify-between">
@@ -543,13 +598,24 @@ export default defineComponent({
           <!-- Ações à direita -->
           <div class="flex justify-end items-center gap-6">
 
-            <h1 class="text-black font-medium">Produtos</h1>
+            <button
+              @click="redirectToLogs"
+              class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+            >
+              Auditoria
+            </button>
 
             <div ref="menuRef" class="relative inline-block text-left">
               <button
                 @click="toggleAddMenu"
-                class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+                class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-emerald-700"
               >
+
+                <svg class="w-6 h-6 text-black dark:text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+                </svg>
+
+
                 Adicionar
               </button>
 
@@ -574,9 +640,9 @@ export default defineComponent({
 
             <button
               @click="logout"
-              class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+              class="text-white bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer"
             >
-              Logout
+              Sair
             </button>
 
           </div>
@@ -594,15 +660,15 @@ export default defineComponent({
         
         <!-- Sidebar de filtros (esquerda) -->
         <aside class="w-64 flex-shrink-0">
-          <div class="bg-white/50 dark:bg-gray-400 rounded-lg p-4 space-y-4 sticky top-4 shadow-xl">
-            <h3 class="text-lg font-bold text-emerald-900 mb-4">Filtros</h3>
+          <div class="bg-white/50 dark:bg-gray-350 rounded-lg p-4 space-y-4 sticky top-4 shadow-3xl">
+            <h3 class="text-2xl font-semibold text-black mb-4">Filtros</h3>
             
             <!-- Filtro Bucha -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo da Bucha</label>
               <select 
                 v-model="filterBucha"
-                class="w-full h-10 bg-emerald-900 font-semibold text-white rounded-lg px-3 hover:cursor-pointer hover:bg-emerald-700 transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="bucha in filteredBuchas" :key="bucha.id" :value="bucha.tipobucha">
@@ -616,7 +682,7 @@ export default defineComponent({
               <label class="block text-sm font-medium text-black mb-2">Tipo do Acionamento</label>
               <select 
                 v-model="filterAcionamento"
-                class="w-full h-10 bg-emerald-900 font-semibold text-white rounded-lg px-3 hover:cursor-pointer hover:bg-emerald-700 transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="acionamento in filteredAcionamentos" :key="acionamento.id" :value="acionamento.tipoacionamento">
@@ -630,7 +696,7 @@ export default defineComponent({
               <label class="block text-sm font-medium text-black mb-2">Tipo da Base</label>
               <select 
                 v-model="filterBase"
-                class="w-full h-10 bg-emerald-900 font-semibold text-white rounded-lg px-3 hover:cursor-pointer hover:bg-emerald-700 transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
@@ -643,15 +709,49 @@ export default defineComponent({
             <div class="space-y-2 pt-4">
               <button 
                 @click="filterWithParamsHandler()" 
-                class="w-full flex items-center hover:cursor-pointer justify-center gap-2 h-10 bg-emerald-900 font-semibold text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                :class="[
+                  'w-full flex items-center justify-center gap-2 h-10 font-semibold rounded-lg transition-all duration-300',
+                  hasAnyFilter && !isLoadingFilters
+                    ? 'bg-emerald-800 hover:bg-emerald-600 text-white shadow-md hover:shadow-lg hover:cursor-pointer' 
+                    : 'bg-gray-400 cursor-not-allowed text-gray-200'
+                ]"
+                :disabled="!hasAnyFilter || isLoadingFilters"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 376 384">
+                <!-- Ícone de busca (quando NÃO está carregando) -->
+                <svg 
+                  v-if="!isLoadingFilters"
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 376 384"
+                >
                   <path fill="currentColor" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/>
                 </svg>
-                Filtrar
+                
+                <!-- Spinner (quando está carregando) -->
+                <svg 
+                  v-else
+                  class="animate-spin h-5 w-5" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24"
+                >
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                
+                <!-- Texto dinâmico -->
+                <span>
+                  {{ 
+                    isLoadingFilters 
+                      ? 'Carregando...' 
+                      : (hasAnyFilter ? 'Filtrar' : 'Selecione um filtro') 
+                  }}
+                </span>
               </button>
 
               <button 
+                v-if="hasAnyFilter"
                 @click="clearFilters()" 
                 class="w-full flex items-center justify-center gap-2 h-10 bg-gray-600 font-semibold text-white rounded-lg hover:cursor-pointer hover:bg-gray-700 transition-colors"
               >
@@ -681,7 +781,7 @@ export default defineComponent({
             <!-- Novo Produto (direita) -->
             <button
               @click="openAddModal()"
-              class="h-12 bg-emerald-900 font-semibold text-white rounded-lg hover:cursor-pointer hover:bg-emerald-700 flex items-center gap-3 px-4 whitespace-nowrap"
+              class="h-12 bg-emerald-800 font-semibold text-white rounded-lg hover:cursor-pointer hover:bg-emerald-600 flex items-center gap-3 px-4 whitespace-nowrap"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -719,7 +819,7 @@ export default defineComponent({
                     <div class="flex gap-2">
                       <div class="relative group">
                         <button 
-                          class="p-1.5 bg-emerald-900 text-white rounded-sm hover:bg-emerald-700 transition-colors hover:cursor-pointer" 
+                          class="p-1.5 bg-emerald-800 text-white rounded-sm hover:bg-emerald-600 transition-colors hover:cursor-pointer" 
                           @click="openEditModal(product)"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
@@ -750,7 +850,7 @@ export default defineComponent({
 
                 <!-- Botão Ver Detalhes -->
                 <button 
-                  class="font-fira bg-emerald-700 w-full py-3 rounded-lg hover:cursor-pointer hover:bg-emerald-900 text-white font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  class="font-fira bg-emerald-800 w-full py-3 rounded-lg hover:cursor-pointer hover:bg-emerald-600 text-white font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   @click="showProductDetails(product)"
                   :disabled="isLoadingDetails"
                 >
@@ -785,18 +885,18 @@ export default defineComponent({
           v-if="isEditModalOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4"
         >
-          <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh]">
+          <div class="relative bg-neutral-200 rounded-4xl shadow-2xl w-full max-w-6xl max-h-[90vh]">
             
             
-            <div class="bg-emerald-800/50 px-8 py-6 border-b border-emerald-700/50">
+            <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-3xl font-bold text-white">Editar Produto</h3>
-                  <p class="text-emerald-200 text-sm mt-1">Altere as informações do produto</p>
+                  <h3 class="text-3xl font-bold text-black">Editar Produto</h3>
+                  <p class="text-black text-sm mt-1">Altere as informações do produto</p>
                 </div>
                 <button
                   @click="isEditModalOpen = false"
-                  class="hover:cursor-pointer text-white/80 hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+                  class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -810,7 +910,7 @@ export default defineComponent({
               
               
               <div class="mb-6">
-                <h4 class="text-lg font-semibold text-emerald-200 mb-2 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                   </svg>
@@ -820,40 +920,40 @@ export default defineComponent({
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Código <span class="text-red-400">*</span>
                     </label>
                     <input
                       v-model="editingProduct!.codigo"
                       type="text"
                       placeholder="Ex: RAL-1234"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   <!-- Capacidade Estática -->
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Capacidade Estática (KG) <span class="text-red-400">*</span>
                     </label>
                     <input
                       v-model="editingProduct!.capacidade_estatica"
                       type="number"
                       placeholder="Ex: 5000"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Capacidade de Trabalho (KG) <span class="text-red-400">*</span>
                     </label>
                     <input
                       v-model="editingProduct!.capacidade_trabalho"
                       type="number"
                       placeholder="Ex: 2500"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
                 </div>
@@ -861,7 +961,7 @@ export default defineComponent({
 
              
               <div class="mb-6">
-                <h4 class="text-lg font-semibold text-emerald-200 mb-2 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75a4.5 4.5 0 01-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 11-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 016.336-4.486l-3.276 3.276a3.004 3.004 0 002.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852z" />
                   </svg>
@@ -872,7 +972,7 @@ export default defineComponent({
                   
                   
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Acionamento <span class="text-red-400">*</span>
                     </label>
                     <div class="relative">
@@ -882,14 +982,14 @@ export default defineComponent({
                             v-model="acionamentoSearchTerm"
                             type="text"
                             placeholder="Buscar ou selecionar"
-                            class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                            class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 transition-all"
                             @focus="showAcionamentosDropdown = true"
                             @click.stop
                           />
                           <button
                             v-if="acionamentoSearchTerm"
                             @click="acionamentoSearchTerm = ''"
-                            class="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white transition-colors hover:cursor-pointer"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-black hover:text-white transition-colors hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -898,10 +998,10 @@ export default defineComponent({
                         </div>
                         <button
                           @click="isAddAcionamentoModalOpen = true"
-                          class="px-3 py-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
+                          class="px-3 py-2.5 bg-white hover:bg-gray-300 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
                           title="Adicionar novo acionamento"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-black">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                           </svg>
                         </button>
@@ -910,19 +1010,19 @@ export default defineComponent({
                       <!-- Dropdown -->
                       <ul
                         v-if="showAcionamentosDropdown && filteredAcionamentos.length > 0"
-                        class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
+                        class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
                         @click.stop
                       >
                         <li
                           v-for="a in filteredAcionamentos"
                           :key="a.id"
                           @click="selectAcionamento(a)"
-                          class="px-4 py-2.5 text-white hover:bg-emerald-800 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
+                          class="px-4 py-2.5 text-black hover:bg-gray-200 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
                         >
                           {{ a.tipoacionamento }}
                         </li>
                       </ul>
-                      <div v-if="showAcionamentosDropdown && filteredAcionamentos.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg p-4 text-emerald-300 text-sm text-center">
+                      <div v-if="showAcionamentosDropdown && filteredAcionamentos.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg p-4 text-black text-sm text-center">
                         Nenhum acionamento encontrado
                       </div>
                     </div>
@@ -930,7 +1030,7 @@ export default defineComponent({
 
                   <!-- Bucha -->
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Bucha <span class="text-red-400">*</span>
                     </label>
                     <div class="relative">
@@ -940,14 +1040,14 @@ export default defineComponent({
                             v-model="buchaSearchTerm"
                             type="text"
                             placeholder="Buscar ou selecionar"
-                            class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                            class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 transition-all"
                             @focus="showBuchasDropdown = true"
                             @click.stop
                           />
                           <button
                             v-if="buchaSearchTerm"
                             @click="buchaSearchTerm = ''"
-                            class="absolute right-2 hover:cursor-pointer top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white transition-colors"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-black hover:text-white transition-colors hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -956,10 +1056,10 @@ export default defineComponent({
                         </div>
                         <button
                           @click="isAddBuchaModalOpen = true"
-                          class="px-3 py-2.5 hover:cursor-pointer bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors"
+                          class="px-3 py-2.5 bg-white hover:bg-gray-300 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
                           title="Adicionar nova bucha"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-black">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                           </svg>
                         </button>
@@ -967,24 +1067,27 @@ export default defineComponent({
                       
                       <ul
                         v-if="showBuchasDropdown && filteredBuchas.length > 0"
-                        class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
+                        class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
                         @click.stop
                       >
                         <li
                           v-for="a in filteredBuchas"
                           :key="a.id"
                           @click="selectBucha(a)"
-                          class="px-4 py-2.5 text-white hover:bg-emerald-800 cursor-pointer transition-colors"
+                          class="px-4 py-2.5 text-black hover:bg-gray-200 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
                         >
                           {{ a.tipobucha }}
                         </li>
                       </ul>
+                      <div v-if="showBuchasDropdown && filteredBuchas.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg p-4 text-black text-sm text-center">
+                        Nenhuma bucha encontrada
+                      </div>
                     </div>
                   </div>
 
                   <!-- Base -->
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Base <span class="text-red-400">*</span>
                     </label>
                     <div class="relative">
@@ -994,14 +1097,14 @@ export default defineComponent({
                             v-model="baseSearchTerm"
                             type="text"
                             placeholder="Buscar ou selecionar"
-                            class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                            class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 transition-all"
                             @focus="showBasesDropdown = true"
                             @click.stop
                           />
                           <button
                             v-if="baseSearchTerm"
                             @click="baseSearchTerm = ''"
-                            class="absolute right-2 hover:cursor-pointer top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white transition-colors"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-black hover:text-white transition-colors hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1010,10 +1113,10 @@ export default defineComponent({
                         </div>
                         <button
                           @click="isAddBaseModalOpen = true"
-                          class="px-3 py-2.5 hover:cursor-pointer bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors"
+                          class="px-3 py-2.5 bg-white hover:bg-gray-300 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
                           title="Adicionar nova base"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-black">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                           </svg>
                         </button>
@@ -1021,18 +1124,21 @@ export default defineComponent({
                       
                       <ul
                         v-if="showBasesDropdown && filteredBases.length > 0"
-                        class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
+                        class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
                         @click.stop
                       >
                         <li
                           v-for="a in filteredBases"
                           :key="a.id"
                           @click="selectBase(a)"
-                          class="px-4 py-2.5 text-white hover:bg-emerald-800 cursor-pointer transition-colors"
+                          class="px-4 py-2.5 text-black hover:bg-gray-200 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
                         >
                           {{ a.tipobase }}
                         </li>
                       </ul>
+                      <div v-if="showBasesDropdown && filteredBases.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg p-4 text-black text-sm text-center">
+                        Nenhum acionamento encontrado
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1040,7 +1146,7 @@ export default defineComponent({
 
               <!-- Seção: Medidas -->
               <div class="mb-6">
-                <h4 class="text-lg font-semibold text-emerald-200 mb-2 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
                   </svg>
@@ -1049,40 +1155,40 @@ export default defineComponent({
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">Curso (mm)</label>
+                    <label class="block text-sm font-medium text-black mb-2">Curso (mm)</label>
                     <input
                       v-model="editingProduct!.curso"
                       type="number"
                       placeholder="Ex: 150"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">Altura da Bucha (mm)</label>
+                    <label class="block text-sm font-medium text-black mb-2">Altura da Bucha (mm)</label>
                     <input
                       v-model="editingProduct!.altura_bucha"
                       type="number"
                       placeholder="Ex: 80"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">Redução</label>
+                    <label class="block text-sm font-medium text-black mb-2">Redução</label>
                     <input
                       v-model="editingProduct!.reducao"
                       type="text"
                       placeholder="Ex: 5:1"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
                 </div>
               </div>
 
               <!-- Seção: Descrição -->
-              <div>
-                <h4 class="text-lg font-semibold text-emerald-200 mb-4 flex items-center gap-2">
+              <div class="mb-6">
+                <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
@@ -1092,16 +1198,78 @@ export default defineComponent({
                   v-model="editingProduct!.description"
                   placeholder="Adicione uma descrição detalhada do produto..."
                   rows="4"
-                  class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none"
+                  class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 resize-none"
                 ></textarea>
               </div>
+
+              <div class="">
+              <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                  Imagens
+                </h4>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-black mb-2">
+                      Imagens <span class="text-red-400">*</span>
+                    </label>
+                    
+                    <!-- Input invisível -->
+                    <input 
+                      type="file" 
+                      id="file-upload"
+                      class="hidden"
+                      @change="handleFileUpload"
+                      accept="image/*"
+                      multiple
+                    />
+                    
+                    <!-- Label customizado que funciona como botão -->
+                    <label 
+                      for="file-upload"
+                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-between"
+                    >
+                      <span class="text-black" v-if="!selectedFileName">
+                        Clique para escolher imagens...
+                      </span>
+                      <span v-else class="text-white">
+                        {{ selectedFileName }}
+                      </span>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                    </label>
+                  </div>
+
+                  <div class="flex flex-col justify-between">
+                    <div class="flex justify-end">
+                      <div class="p-2 mr-auto">
+                        <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
+                        <div class="flex items-center gap-3">
+                          <span class="text-sm font-medium text-black">
+                            {{ isActive ? 'Ativo' : 'Inativo' }}
+                          </span>
+                          <label class="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              v-model="isActive"
+                              class="sr-only peer"
+                            >
+                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-            <!-- Footer com botões -->
-            <div class="bg-emerald-800/30 px-8 py-4 border-t border-emerald-700/50 flex justify-between items-center">
-              <p class="text-emerald-300 text-sm">
-                <span class="text-red-400">*</span> Campos obrigatórios
-              </p>
+            <!-- Footer com botões bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg -->
+            <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
               <div class="flex gap-3">
                 <button
                   @click="isEditModalOpen = false"
@@ -1111,7 +1279,7 @@ export default defineComponent({
                 </button>
                 <button
                   @click="editProduct(editingProduct!), isEditModalOpen = false"
-                  class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+                  class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-emerald-800 hover:bg-emerald-600 text-white font-medium transition-colors flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -1128,7 +1296,7 @@ export default defineComponent({
           v-if="isProductDetailsOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
         >
-          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[70%] max-h-[%70] p-20">
+          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl h-[70%] max-h-[%70] p-20">
 
             <button
               @click="isProductDetailsOpen = false"
@@ -1145,7 +1313,7 @@ export default defineComponent({
             <div class="grid grid-cols-2 gap-4">
         
             <!-- Coluna da esquerda: imagens -->
-            <div class="grid grid-rows-2 h-[90%] w-full gap-4">
+            <div class="grid grid-rows-2 h-[95%] w-full gap-4">
               
               <!-- Imagem principal -->
               <div class="h-full flex justify-start">
@@ -1178,29 +1346,29 @@ export default defineComponent({
                 <div class="space-y-4">
                   
                   <div>
-                    <h1 class="w-full font-fira text-emerald-900 text-2xl font-bold">Pé de Apoio {{ fetchedProduct?.capacidade_estatica }} Kg Acionamento {{ fetchedProduct?.tipoacionamento }} {{ fetchedProduct?.codigo }}</h1>
+                    <h1 class="w-full font-fira text-emerald-900 text-3xl font-bold">Pé de Apoio {{ fetchedProduct?.capacidade_estatica }} Kg Acionamento {{ fetchedProduct?.tipoacionamento }} {{ fetchedProduct?.codigo }}</h1>
                   </div>
 
                   <div class="mt-10">
-                      <h1 class="w-full font-fira text-gray-600 text-md">{{ fetchedProduct?.description }}</h1>
+                      <h1 class="w-full font-fira text-gray-800 text-xl">{{ fetchedProduct?.description }}</h1>
                   </div>
 
                   <div class="mt-10 space-y-4">
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"> <span class="font-semibold text-black">* Capacidade: </span>{{ fetchedProduct?.capacidade_estatica }} kg</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"> <span class="font-semibold text-black">* Capacidade: </span>{{ fetchedProduct?.capacidade_estatica }} kg</h1>
                   </div>
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Base: </span>{{ fetchedProduct?.tipobase }}</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"><span class="font-semibold text-black">* Base: </span>{{ fetchedProduct?.tipobase }}</h1>
                   </div>
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Bucha de fixação: </span>{{ fetchedProduct?.tipobucha }}</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"><span class="font-semibold text-black">* Bucha de fixação: </span>{{ fetchedProduct?.tipobucha }}</h1>
                   </div>
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Acionamento: </span>{{ fetchedProduct?.tipoacionamento }}</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"><span class="font-semibold text-black">* Acionamento: </span>{{ fetchedProduct?.tipoacionamento }}</h1>
                   </div>
 
                   </div>
@@ -1224,18 +1392,17 @@ export default defineComponent({
           v-if="isAddModalOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4"
         >
-          <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh]">
+          <div class="relative bg-neutral-200 rounded-4xl shadow-2xl w-full max-w-6xl max-h-[90vh]">
             
             
-            <div class="bg-emerald-800/50 px-8 py-6 border-b border-emerald-700/50">
+            <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-3xl font-bold text-white">Novo Produto</h3>
-                  <p class="text-emerald-200 text-sm mt-1">Preencha as informações do produto</p>
+                  <h3 class="text-3xl font-bold text-black">Novo Produto</h3>
                 </div>
                 <button
                   @click="isAddModalOpen = false"
-                  class="hover:cursor-pointer text-white/80 hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+                  class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1249,7 +1416,7 @@ export default defineComponent({
               
               
               <div class="mb-6">
-                <h4 class="text-lg font-semibold text-emerald-200 mb-2 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                   </svg>
@@ -1259,40 +1426,40 @@ export default defineComponent({
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Código <span class="text-red-400">*</span>
                     </label>
                     <input
                       v-model="newProduct!.codigo"
                       type="text"
                       placeholder="Ex: RAL-1234"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   <!-- Capacidade Estática -->
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Capacidade Estática (KG) <span class="text-red-400">*</span>
                     </label>
                     <input
                       v-model="newProduct!.capacidade_estatica"
                       type="number"
                       placeholder="Ex: 5000"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Capacidade de Trabalho (KG) <span class="text-red-400">*</span>
                     </label>
                     <input
                       v-model="newProduct!.capacidade_trabalho"
                       type="number"
                       placeholder="Ex: 2500"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
                 </div>
@@ -1300,7 +1467,7 @@ export default defineComponent({
 
              
               <div class="mb-6">
-                <h4 class="text-lg font-semibold text-emerald-200 mb-2 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75a4.5 4.5 0 01-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 11-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 016.336-4.486l-3.276 3.276a3.004 3.004 0 002.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852z" />
                   </svg>
@@ -1311,7 +1478,7 @@ export default defineComponent({
                   
                   
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Acionamento <span class="text-red-400">*</span>
                     </label>
                     <div class="relative">
@@ -1321,14 +1488,14 @@ export default defineComponent({
                             v-model="acionamentoSearchTerm"
                             type="text"
                             placeholder="Buscar ou selecionar"
-                            class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                            class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 transition-all"
                             @focus="showAcionamentosDropdown = true"
                             @click.stop
                           />
                           <button
                             v-if="acionamentoSearchTerm"
                             @click="acionamentoSearchTerm = ''"
-                            class="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white transition-colors hover:cursor-pointer"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-black hover:text-white transition-colors hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1337,10 +1504,10 @@ export default defineComponent({
                         </div>
                         <button
                           @click="isAddAcionamentoModalOpen = true"
-                          class="px-3 py-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
+                          class="px-3 py-2.5 bg-white hover:bg-gray-300 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
                           title="Adicionar novo acionamento"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-black">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                           </svg>
                         </button>
@@ -1349,19 +1516,19 @@ export default defineComponent({
                       <!-- Dropdown -->
                       <ul
                         v-if="showAcionamentosDropdown && filteredAcionamentos.length > 0"
-                        class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
+                        class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
                         @click.stop
                       >
                         <li
                           v-for="a in filteredAcionamentos"
                           :key="a.id"
                           @click="selectAcionamento(a)"
-                          class="px-4 py-2.5 text-white hover:bg-emerald-800 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
+                          class="px-4 py-2.5 text-black hover:bg-gray-200 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
                         >
                           {{ a.tipoacionamento }}
                         </li>
                       </ul>
-                      <div v-if="showAcionamentosDropdown && filteredAcionamentos.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg p-4 text-emerald-300 text-sm text-center">
+                      <div v-if="showAcionamentosDropdown && filteredAcionamentos.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg p-4 text-black text-sm text-center">
                         Nenhum acionamento encontrado
                       </div>
                     </div>
@@ -1369,7 +1536,7 @@ export default defineComponent({
 
                   <!-- Bucha -->
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Bucha <span class="text-red-400">*</span>
                     </label>
                     <div class="relative">
@@ -1379,14 +1546,14 @@ export default defineComponent({
                             v-model="buchaSearchTerm"
                             type="text"
                             placeholder="Buscar ou selecionar"
-                            class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                            class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 transition-all"
                             @focus="showBuchasDropdown = true"
                             @click.stop
                           />
                           <button
                             v-if="buchaSearchTerm"
                             @click="buchaSearchTerm = ''"
-                            class="absolute right-2 hover:cursor-pointer top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white transition-colors"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-black hover:text-white transition-colors hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1395,10 +1562,10 @@ export default defineComponent({
                         </div>
                         <button
                           @click="isAddBuchaModalOpen = true"
-                          class="px-3 py-2.5 hover:cursor-pointer bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors"
+                          class="px-3 py-2.5 bg-white hover:bg-gray-300 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
                           title="Adicionar nova bucha"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-black">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                           </svg>
                         </button>
@@ -1406,24 +1573,27 @@ export default defineComponent({
                       
                       <ul
                         v-if="showBuchasDropdown && filteredBuchas.length > 0"
-                        class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
+                        class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
                         @click.stop
                       >
                         <li
                           v-for="a in filteredBuchas"
                           :key="a.id"
                           @click="selectBucha(a)"
-                          class="px-4 py-2.5 text-white hover:bg-emerald-800 cursor-pointer transition-colors"
+                          class="px-4 py-2.5 text-black hover:bg-gray-200 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
                         >
                           {{ a.tipobucha }}
                         </li>
                       </ul>
+                      <div v-if="showBuchasDropdown && filteredBuchas.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg p-4 text-black text-sm text-center">
+                        Nenhuma bucha encontrada
+                      </div>
                     </div>
                   </div>
 
                   <!-- Base -->
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">
+                    <label class="block text-sm font-medium text-black mb-2">
                       Base <span class="text-red-400">*</span>
                     </label>
                     <div class="relative">
@@ -1433,14 +1603,14 @@ export default defineComponent({
                             v-model="baseSearchTerm"
                             type="text"
                             placeholder="Buscar ou selecionar"
-                            class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                            class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 transition-all"
                             @focus="showBasesDropdown = true"
                             @click.stop
                           />
                           <button
                             v-if="baseSearchTerm"
                             @click="baseSearchTerm = ''"
-                            class="absolute right-2 hover:cursor-pointer top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white transition-colors"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-black hover:text-white transition-colors hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1449,10 +1619,10 @@ export default defineComponent({
                         </div>
                         <button
                           @click="isAddBaseModalOpen = true"
-                          class="px-3 py-2.5 hover:cursor-pointer bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors"
+                          class="px-3 py-2.5 bg-white hover:bg-gray-300 rounded-lg transition-colors flex items-center justify-center hover:cursor-pointer"
                           title="Adicionar nova base"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-black">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                           </svg>
                         </button>
@@ -1460,18 +1630,21 @@ export default defineComponent({
                       
                       <ul
                         v-if="showBasesDropdown && filteredBases.length > 0"
-                        class="absolute top-full left-0 right-0 mt-2 bg-emerald-900 border border-emerald-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
+                        class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg shadow-xl max-h-48 overflow-y-auto z-20"
                         @click.stop
                       >
                         <li
                           v-for="a in filteredBases"
                           :key="a.id"
                           @click="selectBase(a)"
-                          class="px-4 py-2.5 text-white hover:bg-emerald-800 cursor-pointer transition-colors"
+                          class="px-4 py-2.5 text-black hover:bg-gray-200 cursor-pointer transition-colors first:rounded-t-lg last:rounded-b-lg"
                         >
                           {{ a.tipobase }}
                         </li>
                       </ul>
+                      <div v-if="showBasesDropdown && filteredBases.length === 0" class="absolute top-full left-0 right-0 mt-2 bg-white border border-black rounded-lg p-4 text-black text-sm text-center">
+                        Nenhum acionamento encontrado
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1479,7 +1652,7 @@ export default defineComponent({
 
               <!-- Seção: Medidas -->
               <div class="mb-6">
-                <h4 class="text-lg font-semibold text-emerald-200 mb-2 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
                   </svg>
@@ -1488,40 +1661,40 @@ export default defineComponent({
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">Curso (mm)</label>
+                    <label class="block text-sm font-medium text-black mb-2">Curso (mm)</label>
                     <input
                       v-model="newProduct!.curso"
                       type="number"
                       placeholder="Ex: 150"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">Altura da Bucha (mm)</label>
+                    <label class="block text-sm font-medium text-black mb-2">Altura da Bucha (mm)</label>
                     <input
                       v-model="newProduct!.altura_bucha"
                       type="number"
                       placeholder="Ex: 80"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-emerald-100 mb-2">Redução</label>
+                    <label class="block text-sm font-medium text-black mb-2">Redução</label>
                     <input
                       v-model="newProduct!.reducao"
                       type="text"
                       placeholder="Ex: 5:1"
-                      class="w-full px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                     />
                   </div>
                 </div>
               </div>
 
               <!-- Seção: Descrição -->
-              <div>
-                <h4 class="text-lg font-semibold text-emerald-200 mb-4 flex items-center gap-2">
+              <div class="mb-6">
+                <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
@@ -1531,16 +1704,78 @@ export default defineComponent({
                   v-model="newProduct!.description"
                   placeholder="Adicione uma descrição detalhada do produto..."
                   rows="4"
-                  class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all resize-none"
+                  class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 resize-none"
                 ></textarea>
               </div>
+
+              <div class="">
+              <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                  Imagens
+                </h4>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-black mb-2">
+                      Imagens <span class="text-red-400">*</span>
+                    </label>
+                    
+                    <!-- Input invisível -->
+                    <input 
+                      type="file" 
+                      id="file-upload"
+                      class="hidden"
+                      @change="handleFileUpload"
+                      accept="image/*"
+                      multiple
+                    />
+                    
+                    <!-- Label customizado que funciona como botão -->
+                    <label 
+                      for="file-upload"
+                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-between"
+                    >
+                      <span class="text-black" v-if="!selectedFileName">
+                        Clique para escolher imagens...
+                      </span>
+                      <span v-else class="text-white">
+                        {{ selectedFileName }}
+                      </span>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                    </label>
+                  </div>
+
+                  <div class="flex flex-col justify-between">
+                    <div class="flex justify-end">
+                      <div class="p-2 mr-auto">
+                        <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
+                        <div class="flex items-center gap-3">
+                          <span class="text-sm font-medium text-black">
+                            {{ isActive ? 'Ativo' : 'Inativo' }}
+                          </span>
+                          <label class="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              v-model="isActive"
+                              class="sr-only peer"
+                            >
+                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-            <!-- Footer com botões -->
-            <div class="bg-emerald-800/30 px-8 py-4 border-t border-emerald-700/50 flex justify-between items-center">
-              <p class="text-emerald-300 text-sm">
-                <span class="text-red-400">*</span> Campos obrigatórios
-              </p>
+            <!-- Footer com botões bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg -->
+            <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
               <div class="flex gap-3">
                 <button
                   @click="isAddModalOpen = false"
@@ -1549,8 +1784,8 @@ export default defineComponent({
                   Cancelar
                 </button>
                 <button
-                  @click="addProduct(newProduct!)"
-                  class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+                  @click="addProduct(newProduct!), isAddModalOpen = false"
+                  class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-emerald-800 hover:bg-emerald-600 text-white font-medium transition-colors flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -1567,22 +1802,21 @@ export default defineComponent({
 
     <div
       v-if="isAddBuchaModalOpen"
-      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 z-50 p-4"
+      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
     >
-      <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="relative bg-neutral-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         
         <!-- Header do Modal -->
-        <div class="bg-emerald-800/50 px-6 py-5 border-b border-emerald-700/50">
+        <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-2xl font-bold text-white">Nova Bucha</h3>
-              <p class="text-emerald-200 text-sm mt-1">Adicione um novo tipo de bucha</p>
+              <h3 class="text-3xl font-bold text-black">Nova Bucha</h3>
             </div>
             <button
               @click="isAddBuchaModalOpen = false"
-              class="text-white/80 hover:cursor-pointer hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+              class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-black">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1592,32 +1826,30 @@ export default defineComponent({
         <!-- Conteúdo -->
         <div class="px-6 py-6">
           <div>
-            <label class="block text-sm font-medium text-emerald-100 mb-2">
+            <label class="block text-sm font-medium text-black mb-2">
               Tipo da Bucha <span class="text-red-400">*</span>
             </label>
             <input
               v-model="newBucha!.tipobucha"
               type="text"
               placeholder="Ex: Bucha Cilíndrica"
-              class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
+            <p v-if="errorMessageBucha" class="text-red-500 text-sm mt-1">{{ errorMessageBucha }}</p>
           </div>
         </div>
 
         <!-- Footer com botões -->
-        <div class="bg-emerald-800/30 px-6 py-4 border-t border-emerald-700/50 flex justify-between items-center">
-          <p class="text-emerald-300 text-sm">
-            <span class="text-red-400">*</span> Campo obrigatório
-          </p>
+        <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
           <div class="flex gap-3">
             <button
               @click="isAddBuchaModalOpen = false"
-              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
+              class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
             >
               Cancelar
             </button>
             <button
-              @click="addBucha(newBucha!), isAddBuchaModalOpen = false"
+              @click="addBucha(newBucha!)"
               class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -1633,22 +1865,21 @@ export default defineComponent({
 
     <div
       v-if="isAddBaseModalOpen"
-      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 z-50 p-4"
+      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
     >
-      <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="relative bg-neutral-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         
         <!-- Header do Modal -->
-        <div class="bg-emerald-800/50 px-6 py-5 border-b border-emerald-700/50">
+        <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-2xl font-bold text-white">Nova Base</h3>
-              <p class="text-emerald-200 text-sm mt-1">Adicione um novo tipo de base</p>
+              <h3 class="text-3xl font-bold text-black">Nova Base</h3>
             </div>
             <button
               @click="isAddBaseModalOpen = false"
-              class="text-white/80 hover:cursor-pointer hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+              class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-black">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1658,33 +1889,31 @@ export default defineComponent({
         <!-- Conteúdo -->
         <div class="px-6 py-6">
           <div>
-            <label class="block text-sm font-medium text-emerald-100 mb-2">
+            <label class="block text-sm font-medium text-black mb-2">
               Tipo da base <span class="text-red-400">*</span>
             </label>
             <input
               v-model="newBase!.tipobase"
               type="text"
-              placeholder="Ex: Redonda Fixa"
-              class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              placeholder="Ex: Base quadrada"
+              class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
+            <p v-if="errorMessageBase" class="text-red-500 text-sm mt-1">{{ errorMessageBase }}</p>
           </div>
         </div>
 
         <!-- Footer com botões -->
-        <div class="bg-emerald-800/30 px-6 py-4 border-t border-emerald-700/50 flex justify-between items-center">
-          <p class="text-emerald-300 text-sm">
-            <span class="text-red-400">*</span> Campo obrigatório
-          </p>
+        <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
           <div class="flex gap-3">
             <button
               @click="isAddBaseModalOpen = false"
-              class="px-5 py-2.5 hover:cursor-pointer rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
+              class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
             >
               Cancelar
             </button>
             <button
-              @click="addBase(newBase!), isAddBaseModalOpen = false"
-              class="px-5 py-2.5 hover:cursor-pointer rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+              @click="addBase(newBase!)"
+              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -1701,22 +1930,21 @@ export default defineComponent({
 
     <div
       v-if="isAddAcionamentoModalOpen"
-      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 z-50 p-4"
+      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
     >
-      <div class="relative bg-gradient-to-br from-emerald-900 to-emerald-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="relative bg-neutral-200 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         
         <!-- Header do Modal -->
-        <div class="bg-emerald-800/50 px-6 py-5 border-b border-emerald-700/50">
+        <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-2xl font-bold text-white">Novo Acionamento</h3>
-              <p class="text-emerald-200 text-sm mt-1">Adicione um novo tipo de acionamento</p>
+              <h3 class="text-3xl font-bold text-black">Novo Acionamento</h3>
             </div>
             <button
               @click="isAddAcionamentoModalOpen = false"
-              class="text-white/80 hover:cursor-pointer hover:text-white hover:bg-emerald-800 rounded-lg p-2 transition-all"
+              class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-black">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1726,33 +1954,31 @@ export default defineComponent({
         <!-- Conteúdo -->
         <div class="px-6 py-6">
           <div>
-            <label class="block text-sm font-medium text-emerald-100 mb-2">
-              Tipo de acionamento <span class="text-red-400">*</span>
+            <label class="block text-sm font-medium text-black mb-2">
+              Tipo do Acionamento <span class="text-red-400">*</span>
             </label>
             <input
               v-model="newAcionamento!.tipoacionamento"
               type="text"
-              placeholder="Ex: Lateral"
-              class="w-full px-4 py-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white placeholder-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              placeholder="Ex: Acionamento Lateral"
+              class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
+            <p v-if="errorMessageAcionamento" class="text-red-500 text-sm mt-1">{{ errorMessageAcionamento }}</p>
           </div>
         </div>
 
         <!-- Footer com botões -->
-        <div class="bg-emerald-800/30 px-6 py-4 border-t border-emerald-700/50 flex justify-between items-center">
-          <p class="text-emerald-300 text-sm">
-            <span class="text-red-400">*</span> Campo obrigatório
-          </p>
+        <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
           <div class="flex gap-3">
             <button
               @click="isAddAcionamentoModalOpen = false"
-              class="px-5 py-2.5 hover:cursor-pointer rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
+              class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
             >
               Cancelar
             </button>
             <button
-              @click="addAcionamento(newAcionamento!), isAddAcionamentoModalOpen = false"
-              class="px-5 py-2.5 hover:cursor-pointer rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+              @click="addAcionamento(newAcionamento!)"
+              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -1770,57 +1996,16 @@ export default defineComponent({
         
       </div>
 
-      <div class="bg-zinc-500 w-full h-120 m-10">
-
-        <div class="flex space-x-2 justify-between m-25">
-
-          <div class="">
-            <h1 class="text-3xl font-semibold font-sans-serif">Fale conosco</h1>
-          </div>
-
-          <div class="bg-white w-1/2 h-80 mb-5 rounded-xl p-10 shadow-xl">
-
-            <form action="">
-              <label for="" class="font-fira text-black text-xl">
-                Nome
-              </label>
-              <input
-                  placeholder="John Doe"
-                  class="w-full rounded-xl border border-black bg-white px-3 py-2 mt-2 mb-5 text-sm 
-                  shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-black 
-                  dark:border-black dark:bg-orange-950/60 dark:focus:border-black dark:focus:rin"
-                />
-              <label for="" class="font-fira text-black text-xl">
-                Email
-              </label>
-              <input
-                  placeholder="voce@exemplo.com"
-                  class="w-full rounded-xl border border-black bg-white px-3 py-2 mt-2 mb-5 text-sm 
-                  shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-black 
-                  dark:border-black dark:bg-orange-950/60 dark:focus:border-black dark:focus:rin"
-                />
-                <button class="font-fira bg-emerald-700 w-full py-3 rounded-lg hover:bg-emerald-600 hover:cursor-pointer text-white font-bold text-lg">Enviar</button>
-            </form>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <footer class="bg-white dark:bg-emerald-950 text-black dark:text-white w-full">
+     <footer class="bg-white dark:bg-emerald-950 text-black dark:text-white w-full mt-10">
         <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col items-center space-y-6">
           <!-- Logo -->
-          <img src="../../../../../imgstorage/logo/robusteclogo.png" alt="Logo" class="h-20">
+          <img src="../../../../../imgstorage/logo/logorobusteccinza.png" alt="Logo" class="h-16">
 
           <!-- Links -->
-           <h1 class="text-lime-500 font-fira">Robustec Indústria e Comércio Ltda</h1>
-          <nav class="flex flex-wrap justify-center gap-6 text-base">
-            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="font-fira hover:text-green-900 hover:underline">XXX</a>
+          <nav class="flex flex-col items-center gap-2 text-center">
+            <h1 class="text-lime-500">Robustec Indústria e Comércio Ltda</h1>
+            <h1 class="">ERS 324, Km 75 Linha Anita Garibaldi,</h1>
+            <h1 class="">Vila Maria RS, CEP 99155-000</h1>
           </nav>
 
           <!-- Redes sociais -->
@@ -1830,16 +2015,10 @@ export default defineComponent({
                     <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.9 3.9 0 0 0-1.417.923A3.9 3.9 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.9 3.9 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.9 3.9 0 0 0-.923-1.417A3.9 3.9 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599s.453.546.598.92c.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.5 2.5 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.5 2.5 0 0 1-.92-.598 2.5 2.5 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233s.008-2.388.046-3.231c.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92s.546-.453.92-.598c.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92m-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217m0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334"/>
                   </svg>
             </a>
-            <a target="_blank" href="https://web.facebook.com/Robustec.ltda" class="hover:text-blue-600">
+            <a target="_blank" href="https://web.facebook.com/Robustec.ltda"  class="hover:text-blue-600">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-facebook h-10 w-10" viewBox="0 0 16 16">
                         <path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.131 3.022-3.131.876 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.303.621-1.303 1.258v1.51h2.218l-.354 2.326H9.25V16c3.824-.604 6.75-3.934 6.75-7.951"/>
                       </svg> 
-            </a>
-            <a target="_blank" href="https://api.whatsapp.com/send/?phone=5433592200&text&type=phone_number&app_absent=0" class="hover:text-green-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-whatsapp h-10 w-10" viewBox="0 0 16 16">
-            <path d="M13.601 2.326A7.876 7.876 0 0 0 8.004 0C3.584 0 .016 3.566.016 7.986c0 1.409.368 2.781 1.07 3.986L0 16l4.134-1.067a7.951 7.951 0 0 0 3.87.986h.004c4.42 0 7.988-3.566 7.988-7.986a7.9 7.9 0 0 0-2.395-5.593m-5.597 12.02a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.463.635.657-2.396-.156-.247a6.574 6.574 0 0 1-1.02-3.548c0-3.634 2.961-6.597 6.6-6.597a6.56 6.56 0 0 1 4.674 1.938 6.53 6.53 0 0 1 1.928 4.659c0 3.635-2.961 6.596-6.624 6.619m3.62-4.941c-.197-.099-1.17-.578-1.351-.645-.181-.066-.314-.099-.446.099s-.512.644-.628.775c-.116.132-.232.149-.43.05s-.837-.308-1.594-.983c-.59-.526-.987-1.175-1.103-1.373-.116-.198-.012-.304.087-.402.089"/>
-            </svg>
-
             </a>
           </div>
 
@@ -1849,11 +2028,11 @@ export default defineComponent({
           <!-- Direitos -->
           <div class="flex flex-col sm:flex-row justify-between items-center w-full text-sm">
             <p>&copy; 2025 - Robustec. 
-              <a href="https://www.robustec.ind.br/termos-de-uso" class="hover:underline"> Termos e Condições</a>
+              <a href="#" class="hover:underline"> Termos e Condições</a>
             </p>
             <p>
-              <a href="https://www.robustec.ind.br/politica-de-privacidade" class="hover:underline">Privacidade</a> | 
-              <a href="https://www.robustec.ind.br/trabalhe-conosco/" class="hover:underline">Trabalhe conosco</a>
+              <a href="#" class="hover:underline">Privacidade</a> | 
+              <a href="#" class="hover:underline">Cookies</a>
             </p>
           </div>
         </div>

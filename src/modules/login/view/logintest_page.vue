@@ -6,6 +6,7 @@ import type { AccountUser } from "../../user/domain/user";
 //import type { MyClaims } from "../repository/login_repository";
 import { jwtDecode } from "jwt-decode";
 import { getClaims } from "../../../services/jwt_decoder";
+import func from "../../../../vue-temp/vue-editor-bridge";
 
 export default defineComponent({
   setup() {
@@ -18,34 +19,46 @@ export default defineComponent({
     const emailError = ref("");
     const passwordError = ref("");
 
+    const isRecuperarSenhaModalOpen = ref(false);
+
+    function openRecuperarSenhaModal () {
+      isRecuperarSenhaModalOpen.value = true;
+    };
+
     function togglePassword() {
       showPassword.value = !showPassword.value;
     }
 
+    const forgotPassword = async () => {
+
+      router.push({path: '/esqueci-minha-senha'})
+
+    };
+
     const tryLogin = async () => {
 
-emailError.value = "";
-  passwordError.value = "";
+      emailError.value = "";
+      passwordError.value = "";
 
-  let valid = true;
+      let valid = true;
 
-  if (!email.value || !/^[^@]+@[^@]+\.[^@]+$/.test(email.value)) {
-    emailError.value = "Informe um e-mail válido.";
-    valid = false;
-  }
+      if (!email.value || !/^[^@]+@[^@]+\.[^@]+$/.test(email.value)) {
+        emailError.value = "Informe um e-mail válido.";
+        valid = false;
+      }
 
-  if (!password.value || password.value.length < 6) {
-    passwordError.value = "A senha deve ter ao menos 6 caracteres.";
-    valid = false;
-  }
+      if (!password.value || password.value.length < 6) {
+        passwordError.value = "A senha deve ter ao menos 6 caracteres.";
+        valid = false;
+      }
 
-  if (!valid) return; 
+      if (!valid) return; 
 
       try {
-    const newReq = {
-      email: email.value,
-      password_hash: password.value,
-    };
+        const newReq = {
+          email: email.value,
+          password_hash: password.value,
+        };
 
         await LoginMethod(newReq);
         const claims = getClaims();
@@ -71,13 +84,16 @@ emailError.value = "";
     };
 
     return { 
+      openRecuperarSenhaModal,
+      isRecuperarSenhaModalOpen,
       email, 
       password, 
       tryLogin, 
       showPassword, 
       togglePassword, 
       emailError, 
-      passwordError 
+      passwordError,
+      forgotPassword
     };
   },
 });
@@ -119,34 +135,29 @@ emailError.value = "";
 <!-- </template> -->
 
 <template>
-  <main class="flex min-h-screen items-center justify-center p-4 bg-emerald-950 text-emerald-950 dark:emerald-950 dark:text-slate-100">
-    <div class="w-full max-w-md lg:w-1/2">
+  <main class="flex min-h-screen items-center justify-center p-4 bg-emerald-900 text-emerald-950 dark:emerald-900 dark:text-slate-100">
+    <div class="w-full max-w-lg max-h-lg lg:w-1/2">
       <!-- Card -->
       <div class="">
         <div
-          class="rounded-2xl bg-white/80 shadow-xl ring-1 ring-orange-200 backdrop-blur dark:bg-orange-900/70 dark:ring-orange-800 m-10 lg:w-full"
+          class="rounded-3xl bg-neutral-200 shadow-xl ring-1 ring-black-200 backdrop-blur dark:bg-neutral-200 dark:ring-black-800 m-10 lg:w-full"
         >
           <div class="p-8">
             <!-- Logo / Marca -->
             <div
-              class="mx-auto mb-6 flex h-20 w-40 items-center justify-center rounded-xl"
+              class="mx-auto flex h-30 w-65 mb-3 items-center justify-center rounded-xl"
             >
-              <img src="../../../../imgstorage/logo/robusteclogo.png" alt="Robustec" class="h-25 w-25"/>
+              <img src="../../../../imgstorage/logo/robustec.jpg" alt="Robustec" class="object-contain mx-auto"/>
             </div>
 
-            <h1 class="mb-1 text-center text-2xl font-semibold tracking-tight">
-              Entrar
+            <h1 class="mb-1 text-center font-bold text-emerald-950 text-2xl tracking-tight">
+              Acessar sistema
             </h1>
-            <p
-              class="mb-8 text-center text-md text-green-800 dark:text-white dark:font-semibold"
-            >
-              Acesse sua conta para continuar
-            </p>
 
             <!-- Formulário -->
             <form @submit.prevent="tryLogin" class="space-y-5" novalidate>
               <div>
-                <label for="email" class="mb-1 block text-sm font-medium"
+                <label for="email" class="mb-1 block text-lg font-medium text-black"
                   >E-mail</label
                 >
                 <input
@@ -156,7 +167,7 @@ emailError.value = "";
                   required
                   autocomplete="email"
                   placeholder="voce@exemplo.com"
-                  class="w-full rounded-xl border border-orange-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:border-orange-700 dark:bg-orange-950/60 dark:focus:border-orange-400 dark:focus:ring-orange-800"
+                  class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                 />
                 <p v-if="emailError" class="mt-1 text-xs text-red-600">
                   {{ emailError }}
@@ -165,15 +176,15 @@ emailError.value = "";
 
               <div>
                 <div class="mb-1 flex items-center justify-between">
-                  <label for="password" class="block text-sm font-medium"
+                  <label for="password" class="block text-lg font-medium text-black"
                     >Senha</label
                   >
                   <button
                     type="button"
                     @click="togglePassword"
-                    class="text-xs font-medium text-orange-600 underline-offset-2 hover:underline dark:text-orange-300"
+                    class="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline dark:text-emerald-700"
                   >
-                    {{ showPassword ? "ocultar" : "mostrar" }}
+                    {{ showPassword ? "ocultar senha" : "mostrar senha" }}
                   </button>
                 </div>
                 <div class="relative">
@@ -185,10 +196,10 @@ emailError.value = "";
                     minlength="6"
                     autocomplete="current-password"
                     placeholder="••••••••"
-                    class="w-full rounded-xl border border-orange-300 bg-white px-3 py-2 pr-10 text-sm shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:border-orange-700 dark:bg-orange-950/60 dark:focus:border-orange-400 dark:focus:ring-orange-800"
+                    class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                   />
                   <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-orange-400"
+                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-emerald-700"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -227,10 +238,20 @@ emailError.value = "";
 
               <button
                 type="submit"
-                class="mt-2 w-full rounded-xl bg-emerald-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[.99] dark:bg-emerald-900 dark:text-white dark:hover:bg-emerald-800"
+                class="mt-2 w-full hover:cursor-pointer rounded-xl bg-emerald-900 px-4 py-2.5 text-xl font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[.99] dark:bg-emerald-800 dark:text-white dark:hover:bg-emerald-900"
               >
                 Entrar
               </button>
+
+              <div class="text-center">
+
+                <button @click="forgotPassword">
+
+                <h3 class="text-md text-emerald-800 font-semibold hover:cursor-pointer">Esqueci minha senha</h3>
+
+                </button>
+
+              </div>
             </form>
           </div>
         </div>
@@ -238,3 +259,18 @@ emailError.value = "";
     </div>
   </main>
 </template>
+
+
+<style scoped>
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgba(6, 78, 59, 0.5) inset !important;
+  box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.5) inset !important;
+  -webkit-text-fill-color: rgb(0, 0, 0) !important;
+  caret-color: rgb(0, 0, 0) !important;
+  border-color: rgba(0, 0, 0, 0.5) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+</style>

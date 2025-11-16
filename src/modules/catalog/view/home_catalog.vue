@@ -49,6 +49,22 @@ export default defineComponent({
 
     };
 
+    const isBuchaFilterWithValue = computed(() => {
+      return filterBucha.value !== "" && filterBucha.value !== null && filterBucha.value !== undefined;
+    });
+
+    const isAcionamentoFilterWithValue = computed(() => {
+      return filterAcionamento.value !== "" && filterAcionamento.value !== null && filterAcionamento.value !== undefined;
+    });
+
+    const isBaseFilterWithValue = computed(() => {
+      return filterBase.value !== "" && filterBase.value !== null && filterBase.value !== undefined;
+    });
+
+    const hasAnyFilter = computed(() => {
+      return !!(filterBucha.value || filterAcionamento.value || filterBase.value);
+    });
+
 
     const images = ref([
       "../../../../imgstorage/testes/ral.jpg",
@@ -71,7 +87,7 @@ export default defineComponent({
           limit: 10,
           ...options
         });
-        console.log(data);
+        console.log("ao filtrar com parametros", data);
         products.value = data.products_with_params
         page.value = data.page
         limit.value = data.limit
@@ -109,16 +125,6 @@ export default defineComponent({
       );
     });
 
-    onMounted(async () => {
-      checkUserGroup();
-      products.value = await productsWithParams({page: page.value,  limit: limit.value})
-      acionamentos.value = await fetchAcionamentos();
-      buchas.value = await fetchBuchas();
-      bases.value = await fetchBases();
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      loading.value = false
-    });
-
     const acionamentoMap = computed<Record<number, string>>(() => {
       const map: Record<number, string> = {};
       acionamentos.value.forEach(a => map[a.id] = a.tipoacionamento);
@@ -141,7 +147,7 @@ export default defineComponent({
 
     const isLoadingDetails = ref(false);
 
-    const showProductDetails = async (p: Product) => {
+     const showProductDetails = async (p: Product) => {
       try {
         isLoadingDetails.value = true;
 
@@ -167,9 +173,11 @@ export default defineComponent({
       }
     };
 
+    const isLoadingFilters = ref (false);
+
     const filterWithParamsHandler = async () => {
   try {
-    loading.value = true;
+    isLoadingFilters.value = true;
 
     // Log para debug
     console.log('Filtros aplicados:', {
@@ -206,7 +214,7 @@ export default defineComponent({
         console.error('Erro ao filtrar produtos:', error);
         products.value = []; // Limpar em caso de erro
       } finally {
-        loading.value = false;
+        isLoadingFilters.value = false;
       }
     } 
 
@@ -238,7 +246,30 @@ export default defineComponent({
       removeAccessTokens()
       router.push({ path: '/' })
     }
+
+
+    onMounted(async () => {
+      checkUserGroup();
+
+      console.log("antes de filtrar", products);
+
+      products.value = await productsWithParams({page: page.value,  limit: limit.value})
+
+      console.log("depois de filtrar", products);
+
+      acionamentos.value = await fetchAcionamentos();
+      buchas.value = await fetchBuchas();
+      bases.value = await fetchBases();
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      loading.value = false
+    });
+
     return {
+      isLoadingFilters,
+      hasAnyFilter,
+      isAcionamentoFilterWithValue,
+      isBaseFilterWithValue,
+      isBuchaFilterWithValue,
       isLoadingDetails,
       clearFilters,
       fetchedProduct,
@@ -301,9 +332,6 @@ export default defineComponent({
 
     <div class="flex flex-col items-center w-full">
 
-       <div class="bg-emerald-900 w-full h-20"></div>
-
-
     <header class="mb-10 bg-gray-200 w-full h-28 flex items-center justify-center shadow-md rounded-xl px-8">
 
         <div class="w-full max-w-screen-2xl px-4 flex items-center justify-between">
@@ -330,16 +358,16 @@ export default defineComponent({
             <button
               v-if="showUserManagment"
               @click="redirectToUserManagment"
-              class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+              class="text-white bg-emerald-800 px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors hover:cursor-pointer"
             >
               Gerenciar Usuários
             </button>
 
             <button
               @click="logout"
-              class="text-white bg-emerald-950 px-4 py-2 rounded-lg hover:bg-emerald-800 transition-colors hover:cursor-pointer"
+              class="text-white bg-emerald-800 px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors hover:cursor-pointer"
             >
-              Logout
+              Sair
             </button>
 
           </div>
@@ -357,14 +385,14 @@ export default defineComponent({
         <!-- Sidebar de filtros (esquerda) -->
         <aside class="w-64 flex-shrink-0">
           <div class="bg-white/50 dark:bg-gray-400 rounded-lg p-4 space-y-4 sticky top-4 shadow-xl">
-            <h3 class="text-lg font-bold text-emerald-900 mb-4">Filtros</h3>
+            <h3 class="text-2xl font-semibold text-black mb-4">Filtros</h3>
             
             <!-- Filtro Bucha -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo da Bucha</label>
               <select 
                 v-model="filterBucha"
-                class="w-full h-10 bg-emerald-900 font-semibold text-white rounded-lg px-3 hover:cursor-pointer hover:bg-emerald-700 transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="bucha in filteredBuchas" :key="bucha.id" :value="bucha.tipobucha">
@@ -378,7 +406,7 @@ export default defineComponent({
               <label class="block text-sm font-medium text-black mb-2">Tipo do Acionamento</label>
               <select 
                 v-model="filterAcionamento"
-                class="w-full h-10 bg-emerald-900 font-semibold text-white rounded-lg px-3 hover:cursor-pointer hover:bg-emerald-700 transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="acionamento in filteredAcionamentos" :key="acionamento.id" :value="acionamento.tipoacionamento">
@@ -392,7 +420,7 @@ export default defineComponent({
               <label class="block text-sm font-medium text-black mb-2">Tipo da Base</label>
               <select 
                 v-model="filterBase"
-                class="w-full h-10 bg-emerald-900 font-semibold text-white rounded-lg px-3 hover:cursor-pointer hover:bg-emerald-700 transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
@@ -405,15 +433,49 @@ export default defineComponent({
             <div class="space-y-2 pt-4">
               <button 
                 @click="filterWithParamsHandler()" 
-                class="w-full flex items-center hover:cursor-pointer justify-center gap-2 h-10 bg-emerald-900 font-semibold text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                :class="[
+                  'w-full flex items-center justify-center gap-2 h-10 font-semibold rounded-lg transition-all duration-300',
+                  hasAnyFilter && !isLoadingFilters
+                    ? 'bg-emerald-800 hover:bg-emerald-600 text-white shadow-md hover:shadow-lg hover:cursor-pointer' 
+                    : 'bg-gray-400 cursor-not-allowed text-gray-200'
+                ]"
+                :disabled="!hasAnyFilter || isLoadingFilters"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 376 384">
+                <!-- Ícone de busca (quando NÃO está carregando) -->
+                <svg 
+                  v-if="!isLoadingFilters"
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 376 384"
+                >
                   <path fill="currentColor" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/>
                 </svg>
-                Filtrar
+                
+                <!-- Spinner (quando está carregando) -->
+                <svg 
+                  v-else
+                  class="animate-spin h-5 w-5" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24"
+                >
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                
+                <!-- Texto dinâmico -->
+                <span>
+                  {{ 
+                    isLoadingFilters 
+                      ? 'Carregando...' 
+                      : (hasAnyFilter ? 'Filtrar' : 'Selecione um filtro') 
+                  }}
+                </span>
               </button>
 
               <button 
+                v-if="hasAnyFilter"
                 @click="clearFilters()" 
                 class="w-full flex items-center justify-center gap-2 h-10 bg-gray-600 font-semibold text-white rounded-lg hover:cursor-pointer hover:bg-gray-700 transition-colors"
               >
@@ -470,7 +532,7 @@ export default defineComponent({
 
                 <!-- Botão Ver Detalhes -->
                 <button 
-                  class="font-fira bg-emerald-700 w-full py-3 rounded-lg hover:cursor-pointer hover:bg-emerald-900 text-white font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  class="font-fira bg-emerald-800 w-full py-3 rounded-lg hover:cursor-pointer hover:bg-emerald-600 text-white font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   @click="showProductDetails(product)"
                   :disabled="isLoadingDetails"
                 >
@@ -504,7 +566,7 @@ export default defineComponent({
           v-if="isProductDetailsOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
         >
-          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[60%] max-h-[%90] p-20">
+          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl h-[70%] max-h-[%70] p-20">
 
             <button
               @click="isProductDetailsOpen = false"
@@ -518,11 +580,10 @@ export default defineComponent({
               </svg>
             </button>
 
-            <!-- Grid responsiva -->
             <div class="grid grid-cols-2 gap-4">
         
             <!-- Coluna da esquerda: imagens -->
-            <div class="grid grid-rows-2 h-[90%] w-full gap-4">
+            <div class="grid grid-rows-2 h-[95%] w-full gap-4">
               
               <!-- Imagem principal -->
               <div class="h-full flex justify-start">
@@ -555,29 +616,29 @@ export default defineComponent({
                 <div class="space-y-4">
                   
                   <div>
-                    <h1 class="w-full font-fira text-emerald-900 text-2xl font-bold">Pé de Apoio {{ fetchedProduct?.capacidade_estatica }} Kg Acionamento {{ fetchedProduct?.tipoacionamento }} {{ fetchedProduct?.codigo }}</h1>
+                    <h1 class="w-full font-fira text-emerald-900 text-3xl font-bold">Pé de Apoio {{ fetchedProduct?.capacidade_estatica }} Kg Acionamento {{ fetchedProduct?.tipoacionamento }} {{ fetchedProduct?.codigo }}</h1>
                   </div>
 
                   <div class="mt-10">
-                      <h1 class="w-full font-fira text-gray-600 text-md">{{ fetchedProduct?.description }}</h1>
+                      <h1 class="w-full font-fira text-gray-800 text-xl">{{ fetchedProduct?.description }}</h1>
                   </div>
 
                   <div class="mt-10 space-y-4">
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"> <span class="font-semibold text-black">* Capacidade: </span>{{ fetchedProduct?.capacidade_estatica }} kg</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"> <span class="font-semibold text-black">* Capacidade: </span>{{ fetchedProduct?.capacidade_estatica }} kg</h1>
                   </div>
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Base: </span>{{ fetchedProduct?.tipobase }}</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"><span class="font-semibold text-black">* Base: </span>{{ fetchedProduct?.tipobase }}</h1>
                   </div>
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Bucha de fixação: </span>{{ fetchedProduct?.tipobucha }}</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"><span class="font-semibold text-black">* Bucha de fixação: </span>{{ fetchedProduct?.tipobucha }}</h1>
                   </div>
 
                   <div>
-                    <h1 class="w-full font-fira text-gray-700 text-md"><span class="font-semibold text-black">* Acionamento: </span>{{ fetchedProduct?.tipoacionamento }}</h1>
+                    <h1 class="w-full font-fira text-gray-800 text-xl"><span class="font-semibold text-black">* Acionamento: </span>{{ fetchedProduct?.tipoacionamento }}</h1>
                   </div>
 
                   </div>
@@ -603,15 +664,13 @@ export default defineComponent({
       <footer class="bg-white dark:bg-emerald-950 text-black dark:text-white w-full mt-10">
         <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col items-center space-y-6">
           <!-- Logo -->
-          <img src="../../../../../imgstorage/logo/robusteclogo.png" alt="Logo" class="h-20">
+          <img src="../../../../imgstorage/logo/logorobusteccinza.png" alt="Logo" class="h-16">
 
           <!-- Links -->
-          <nav class="flex flex-wrap justify-center gap-6 text-base">
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
-            <a href="#" class="hover:text-green-900 hover:underline">XXX</a>
+          <nav class="flex flex-col items-center gap-2 text-center">
+            <h1 class="text-lime-500">Robustec Indústria e Comércio Ltda</h1>
+            <h1 class="">ERS 324, Km 75 Linha Anita Garibaldi,</h1>
+            <h1 class="">Vila Maria RS, CEP 99155-000</h1>
           </nav>
 
           <!-- Redes sociais -->

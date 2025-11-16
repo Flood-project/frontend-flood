@@ -47,6 +47,7 @@ interface Options {
 
 export const withParams = async (options: Options = {}): Promise<ProductWithComponents[]> => {
   const response = await getWithPagination<ProductWithComponents[]>(`products/params`, options);
+  console.log("reposta WithParams", response)
   return response
 }
 
