@@ -32,7 +32,7 @@ export async function createProduct (product: Product) {
 
 export const fetchWithComponents = async (): Promise<ProductWithComponents[]> => {
   const response = await instance.get<ProductWithComponents[]>(`products/buchas/acionamentos/bases`);
-  console.log(response);
+  console.log('rpdoutos do repos: ', response);
   
   return response.data
 }
