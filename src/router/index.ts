@@ -8,6 +8,8 @@ import Admin_catalog from "../modules/catalog/view/admin/admin_catalog.vue"
 import { getAccessToken, getRefreshToken, removeAccessTokens, setAccessToken } from "../services/token"
 import { getClaims, isTokenExpired } from "../services/jwt_decoder"
 import { RefreshMethod } from "../modules/login/repository/login_repository"
+import Logs_page from "../modules/catalog/view/admin/logs_page.txt"
+import Forgot_password from "../modules/login/view/forgot_password.vue"
 
 const router = createRouter({
     history: createWebHistory(),
@@ -56,7 +58,18 @@ const router = createRouter({
             name: 'user_managment',
             component: UserPage,
             meta: { requiresAuth: true, role: 3}
+        },
+        {
+            path: '/esqueci-minha-senha',
+            name: 'esqueci_senha',
+            component: Forgot_password
         }
+        // {
+        //     path: "/admin/logs",
+        //     name: 'logs',
+        //     component: Logs_page,
+        //     meta: { requiresAuth: true, role: 1}
+        // }
     ]
 })
 
