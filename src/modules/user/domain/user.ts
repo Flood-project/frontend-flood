@@ -16,8 +16,8 @@ export interface EditingUser {
 }
 
 export interface CreatedUser {
+    id: number
     name: string
     email: string
     id_user_group: number
-    passwordHash: string
 }
