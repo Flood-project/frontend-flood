@@ -399,7 +399,11 @@ export default defineComponent({
 
     const showProductDetails = async (p: Product) => {
       selectedProduct.value = p
-      selectedImage.value = p.images[0]?.url || ""
+      if (p.images) {
+        selectedImage.value = p.images[0]?.url || ""
+        console.log(selectedImage.value);
+      }
+      
       try {
         isLoadingDetails.value = true;
 
@@ -627,6 +631,44 @@ export default defineComponent({
       } 
     }
 
+    const paginateAhead = async () => {
+      try {
+        isLoading.value = true;
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value || undefined,
+          tipoacionamento: filterAcionamento.value || undefined,
+          tipobase: filterBase.value || undefined,
+          page: page.value + 1,
+        });
+        
+        products.value = response.products_with_params;
+        page.value = page.value + 1
+      } catch(error){
+        console.log(error);
+      } finally {
+        isLoading.value = false;
+      }
+    }
+
+    const paginateReturn = async () => {
+      try {
+        isLoading.value = true;
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value || undefined,
+          tipoacionamento: filterAcionamento.value || undefined,
+          tipobase: filterBase.value || undefined,
+          page: page.value - 1
+        });
+        
+        products.value = response.products_with_params;
+        page.value = page.value - 1
+      } catch(error){
+        console.log(error);
+      } finally {
+        isLoading.value = false;
+      }
+    }
+
     onMounted(async () => {
       products.value = await productsWithParams({page: page.value,  limit: limit.value})
       acionamentos.value = await fetchAcionamentos();
@@ -715,7 +757,8 @@ export default defineComponent({
       logout,
       handleFileInput,
       selectedProduct,
-      productId,
+      paginateAhead,
+      paginateReturn,
     };
   },
 });
@@ -1061,6 +1104,28 @@ export default defineComponent({
           </div>
         </main>
 
+    </div>
+    <!-- paginação -->
+    <div class="paginationBack">
+      <div class="pagination">
+        <button
+          class="btnPagination bg-emerald-800"
+          @click="paginateReturn"
+        > 
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12l4-4m-4 4 4 4"/>
+          </svg>
+        </button>
+        <button 
+          class="btnPagination bg-emerald-800"
+          @click="paginateAhead"
+        >
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
+          </svg>
+        </button>
+      </div>
+      <p class="mt-3">Página {{ page }}</p>
     </div>
     
 
@@ -1571,7 +1636,7 @@ export default defineComponent({
               <!-- Imagem principal -->
                <div class="flex-1 flex justify-start items-start rounded-lg p-2 min-h-0" >
                 <img
-                   :src="selectedImage || selectedProduct.images[0]?.url"
+                   :src="selectedImage || selectedImage.images[0]?.url"
                   alt="Imagem principal"
                   class="h-full max-h-full w-auto object-fill rounded transition-all duration-300"
                 />
@@ -2332,3 +2397,33 @@ export default defineComponent({
     <!-- Fim footer-->
   </main>
 </template>
+
+<style>
+.paginationBack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination{
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+}
+
+
+.btnPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  border-radius: 8px;
+}
+
+.btnPagination:hover{
+  cursor: pointer;
+}
+</style>

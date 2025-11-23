@@ -263,6 +263,43 @@ export default defineComponent({
       router.push({ path: '/' })
     }
 
+    const paginateAhead = async () => {
+      try {
+        loading.value = true
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value || undefined,
+          tipoacionamento: filterAcionamento.value || undefined,
+          tipobase: filterBase.value || undefined,
+          page: page.value + 1,
+        });
+        
+        products.value = response.products_with_params;
+        page.value = page.value + 1
+      } catch(error){
+        console.log(error);
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const paginateReturn = async () => {
+      try {
+        loading.value = true
+        const response = await filterWithParams({
+          tipo_bucha: filterBucha.value || undefined,
+          tipoacionamento: filterAcionamento.value || undefined,
+          tipobase: filterBase.value || undefined,
+          page: page.value - 1
+        });
+        
+        products.value = response.products_with_params;
+        page.value = page.value - 1
+      } catch(error){
+        console.log(error);
+      } finally {
+        loading.value = false
+      }
+    }
 
     onMounted(async () => {
       checkUserGroup();
@@ -281,40 +318,45 @@ export default defineComponent({
     });
 
     return {
+      // states
       isLoadingFilters,
       hasAnyFilter,
       isAcionamentoFilterWithValue,
       isBaseFilterWithValue,
       isBuchaFilterWithValue,
       isLoadingDetails,
-      clearFilters,
       fetchedProduct,
       filteredAcionamentos,
       filteredBases,
       filteredBuchas,
       selectedImage,
       images,
-      logout,
       products,
       total,
       page,
       limit,
       search,
       loading,
-      productsWithParams,
-      onSearch,
       filterBucha,
-      filterWithParamsHandler,
       filterAcionamento,
       filterBase,
       buchas,
       acionamentos,
       bases,
-      showProductDetails,
       isProductDetailsOpen,
       showUserManagment,
+      selectedProduct,
+
+      // actions
+      clearFilters,
+      paginateAhead,
+      paginateReturn,
+      logout,
+      productsWithParams,
+      onSearch,
+      filterWithParamsHandler,
+      showProductDetails,
       redirectToUserManagment,
-      selectedProduct
     };
   },
 });
@@ -586,6 +628,28 @@ export default defineComponent({
         </main>
 
     </div>
+    <!-- paginação -->
+    <div class="paginationBack">
+      <div class="pagination">
+        <button
+          class="btnPagination bg-emerald-800"
+          @click="paginateReturn"
+        > 
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12l4-4m-4 4 4 4"/>
+          </svg>
+        </button>
+        <button 
+          class="btnPagination bg-emerald-800"
+          @click="paginateAhead"
+        >
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
+          </svg>
+        </button>
+      </div>
+      <p class="mt-3">Página {{ page }}</p>
+    </div>
 
 
         <div
@@ -767,3 +831,33 @@ export default defineComponent({
     </div>
   </main>
 </template>
+
+<style>
+.paginationBack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination{
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+}
+
+
+.btnPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  border-radius: 8px;
+}
+
+.btnPagination:hover{
+  cursor: pointer;
+}
+</style>
