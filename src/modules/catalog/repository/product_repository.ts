@@ -8,8 +8,24 @@ export const fetchProducts = async (): Promise<Product[]> => {
 }
 
 export const fetchById = async (id: number): Promise<Product> => {
-  const response = await instance.get<Product>(`/products/${id}`);
-  return response.data;
+   console.log('🔍 fetchById chamado com ID:', id);
+  console.log('🔍 Tipo do ID:', typeof id);
+  
+  try {
+    const response = await instance.get<Product>(`/products/${id}`);
+    
+    console.log('✅ fetchById sucesso:', response.data);
+    return response.data;
+    
+  } catch (error: any) {
+    console.error('❌ fetchById erro:', {
+      id: id,
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url,
+    });
+    throw error;
+  }
 }
 
 export async function deleteProductById(id: number) {

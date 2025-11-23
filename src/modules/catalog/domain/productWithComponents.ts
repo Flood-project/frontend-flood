@@ -13,4 +13,5 @@ export interface ProductWithComponents {
     tipo_do_acionamento: string;
     id_base: number;
     tipo_base: string;
+    ativo: boolean;
 } 

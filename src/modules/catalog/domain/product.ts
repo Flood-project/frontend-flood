@@ -10,6 +10,7 @@ export interface Product {
     id_bucha: number;
     id_acionamento: number;
     id_base: number;
+    ativo: boolean;
 } 
 
 export interface DetailedProduct extends Product {
@@ -30,4 +31,5 @@ export interface CreatedProduct {
     id_bucha: number;
     id_acionamento: number;
     id_base: number;
+    ativo: boolean;
 } 

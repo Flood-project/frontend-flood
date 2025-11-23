@@ -16,12 +16,12 @@ export async function deleteAcionamentoById(id: number) {
   if (response.status != 200) throw new Error("Erro ao excluir acionamento");
 }
 
-// export async function updateAcionamento(id: number, acionamento: Acionamento) {
-//  const response = await instance.put(`/acionamentos/${id}`, acionamento);
-//  console.log(acionamento, "no update product", id);
-//  if (response.status != 200) throw new Error("Erro ao atualizar produto");
-//  return response.data;
-// }
+export async function updateAcionamento(id: number, acionamento: Acionamento) {
+ const response = await instance.put(`/acionamentos/${id}`, acionamento);
+ console.log(acionamento, "no update product", id);
+ if (response.status != 200) throw new Error("Erro ao atualizar produto");
+ return response.data;
+}
 
 export async function createAcionamento (acionamento: Acionamento) {
   const response = await instance.post(`/acionamentos`, acionamento);

@@ -143,17 +143,29 @@ export default defineComponent({
       return map;
     });
 
+    const selectedImage = ref(null);
+    const selectedProduct = ref<Product | null>(null);
+
     const isProductDetailsOpen = ref (false);
 
     const isLoadingDetails = ref(false);
 
      const showProductDetails = async (p: Product) => {
+
+      console.log('📋 showProductDetails chamado');
+      console.log('📋 Produto completo:', p);
+      console.log('📋 Product ID:', p.id);
+      console.log('📋 Tipo do ID:', typeof p.id);
+
       selectedProduct.value = p
-      selectedImage.value = p.images[0]?.url || ''
+      selectedImage.value = p.images?.[0]?.url || ''
       try {
         isLoadingDetails.value = true;
 
+        console.log('🔄 Chamando fetchById com ID:', p.id);
         const response = await fetchById(p.id);
+
+        console.log('✅ Resposta do fetchById:', response);
 
         fetchedProduct.value = {
           ...response,
@@ -167,7 +179,12 @@ export default defineComponent({
 
         isProductDetailsOpen.value = true;
 
-      } catch (error) {
+      } catch (error: any) {
+
+         console.error('❌ Erro ao carregar detalhes:', error);
+        console.error('❌ URL da requisição:', error.config?.url);
+        console.error('❌ Resposta do servidor:', error.response?.data);
+
         console.error('❌ Erro ao carregar detalhes:', error);
         alert('Erro ao carregar os detalhes do produto. Tente novamente.');
       } finally {
@@ -238,10 +255,6 @@ export default defineComponent({
       filterBase.value = "";
       await productsWithParams({ page: page.value, limit: limit.value });
     };
-    
-
-    const selectedImage = ref(null);
-    const selectedProduct = ref(null)
 
     const logout = () => {
       console.log('ta aqui');
@@ -579,7 +592,7 @@ export default defineComponent({
           v-if="isProductDetailsOpen"
           class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
         >
-          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-5xl h-[70%] max-h-[%90] p-20">
+          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-7xl h-[60%] max-h-[%90] p-20">
 
             <button
               @click="isProductDetailsOpen = false"
@@ -624,7 +637,7 @@ export default defineComponent({
 
               
               <!-- Coluna do Formulário -->
-              <div class="flex flex-col justify-start">
+              <div class="flex flex-col justify-between h-full">
                 <!-- Campos -->
                 <div class="space-y-4">
                   
@@ -660,8 +673,18 @@ export default defineComponent({
 
                 </div>
 
-            </div>
+                <div class="mt-4">
+                  <a
+                    :href="`https://wa.me/555433592200?text=${encodeURIComponent('Olá! Vim do catálogo e quero saber mais sobre o produto ' + fetchedProduct.codigo)}`"
+                    target="_blank"
+                    class="w-full block text-center bg-emerald-800 text-white font-semibold py-4 rounded-lg hover:bg-emerald-700 transition"
+                  >
+                    Contatar equipe comercial
+                  </a>
+                </div>
 
+            </div>
+            
             </div>
 
             </div>
@@ -671,6 +694,31 @@ export default defineComponent({
           </div>
 
         <!-- Repita o card ou use v-for -->
+
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-600 justify-between flex flex-cols-2 mt-10">
+            <div class="flex items-center">
+              <p class="text-md text-black">
+                Mostrando <span class="font-semibold">{{ products.length }}</span> Produto(s)
+              </p>
+              <!-- Aqui você pode adicionar paginação depois -->
+            </div>
+
+            <div class="flex flex-cols-2">
+
+              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
+              </svg>
+
+              <h1 class="py-0.5 text-black">
+                Página {{ page }}
+              </h1>
+              
+              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
+              </svg>
+
+            </div>
+          </div>
         
       </div>
 

@@ -16,12 +16,12 @@ export async function deleteBuchaById(id: number) {
   if (response.status != 200) throw new Error("Erro ao excluir bucha");
 }
 
-// export async function updateProduct(id: number, product: Product) {
-//  const response = await instance.put(`/products/${id}`, product);
-//  console.log(product, "no update product", id);
-//  if (response.status != 200) throw new Error("Erro ao atualizar produto");
-//  return response.data;
-// }
+export async function updateBucha(id: number, bucha: Bucha) {
+ const response = await instance.put(`/buchas/${id}`, bucha);
+ console.log(bucha, "no update bucha", id);
+ if (response.status != 200) throw new Error("Erro ao atualizar bucha");
+ return response.data;
+}
 
 export async function createBucha (bucha: Bucha) {
   const response = await instance.post(`/buchas`, bucha);

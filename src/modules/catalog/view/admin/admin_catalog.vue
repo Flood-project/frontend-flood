@@ -63,7 +63,7 @@ export default defineComponent({
     const productsWithComponents = ref<ProductWithComponents[]>([])
 
 
-    newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0};
+    newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0, ativo: true};
 
     newBucha.value = { id: 0, tipobucha: ""};
 
@@ -201,6 +201,66 @@ export default defineComponent({
 
     const isAdicionarOpen = ref(false);
 
+    const isAlertDeleteProductModalOpen = ref(false)
+
+    const productToDelete = ref<Product | null>(null);
+
+    function openAlertDeleteProductModal (p: Product) {
+      console.log('🗑️ Abrindo modal de exclusão para:', p);
+      productToDelete.value = p; // ← Guarda o produto
+      isAlertDeleteProductModalOpen.value = true;
+    }
+
+    const closeDeleteModal = () => {
+      isAlertDeleteProductModalOpen.value = false;
+      productToDelete.value = null;
+    };
+
+    const confirmDelete = async () => {
+      if (!productToDelete.value) {
+        console.error('❌ Nenhum produto selecionado para exclusão');
+        return;
+      }
+
+      console.log('🗑️ Excluindo produto:', productToDelete.value.id);
+
+      try {
+        await deleteProductById(productToDelete.value.id);
+        
+        // Remove da lista local
+        products.value = products.value.filter((p) => p.id !== productToDelete.value!.id);
+        
+        console.log('✅ Produto excluído com sucesso');
+        
+        // Fecha o modal
+        closeDeleteModal();
+        
+        alert('Produto excluído com sucesso!');
+        
+      } catch (error) {
+        console.error('❌ Erro ao excluir produto:', error);
+        alert('Erro ao excluir produto. Tente novamente.');
+      }
+    };
+
+    // Inativa o produto (abre modal de edição)
+    const inactivateProduct = () => {
+      if (!productToDelete.value) {
+        console.error('❌ Nenhum produto selecionado');
+        return;
+      }
+
+      console.log('⚙️ Abrindo modal de edição para inativar:', productToDelete.value);
+
+      // Fecha o modal de exclusão
+      isAlertDeleteProductModalOpen.value = false;
+
+      // Abre o modal de edição
+      openEditModal(productToDelete.value);
+
+      // Limpa a referência
+      productToDelete.value = null;
+    };
 
     const menuRef = ref<HTMLElement | null>(null);
 
@@ -221,8 +281,8 @@ export default defineComponent({
     }
 
     function selectAddOption(action: Function) {
-      action();
       isAdicionarOpen.value = false;
+      action();
     }
 
     const errorMessageAcionamento = ref('');
@@ -274,11 +334,46 @@ export default defineComponent({
       isAddBaseModalOpen.value = false;
     };
 
+    const redirectToAcionamentos = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/acionamentos'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
+    const redirectToBuchas = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/buchas'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
+    const redirectToBases = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/bases'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
       const addOptions = ref([
-      { label: "Produtos", action: openAddModal },
-      { label: "Buchas", action: addBucha },
-      { label: "Acionamentos", action: addAcionamento },
-      { label: "Bases", action: addBase },
+      { label: "Buchas", action: redirectToBuchas },
+      { label: "Acionamentos", action: redirectToAcionamentos },
+      { label: "Bases", action: redirectToBases },
     ]);
 
     const productId = ref(0)
@@ -294,7 +389,7 @@ export default defineComponent({
     }
 
     function openAddModal() {
-      newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0};
+      newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0, ativo: true};
       isAddModalOpen.value = true
     }
 
@@ -356,11 +451,23 @@ export default defineComponent({
       console.log(acionamentos.value)
       console.log(newProduct, "antes de chamar create product");
       if (newProduct) {
-        await createProduct(newProduct);
-        console.log(newProduct, "depois de chamar create product")
-        isAddModalOpen.value = false // fecha modal/edição
-      }
-    };
+        try {
+        // 1. Cria o produto
+        const createdProduct = await createProduct(newProduct);
+        
+        console.log('✅ Produto criado:', createdProduct);
+        
+        // 2. Se tiver imagem selecionada e o produto foi criado com ID
+        if (selectedImage.value && createdProduct?.id) {
+          console.log('📤 Fazendo upload da imagem...');
+          await createFile(selectedImage.value, createdProduct.id);
+          console.log('✅ Imagem enviada!');
+        }
+        } catch {
+          console.error("moio");
+        }
+      };
+    }
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
       isLoading.value = true;
@@ -470,13 +577,46 @@ export default defineComponent({
       router.push({ path: '/' })
     }
 
-    const handleFileInput = (event) => {
-      const file = event.target.files[0]
-      if (file) {
-        selectedImage.value = file
-        uploadFile(selectedImage.value)
+    const handleFileInput = async (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      const file = target.files?.[0];
+      
+      if (!file) {
+        console.log('❌ Nenhum arquivo selecionado');
+        return;
       }
-    }
+      
+      // CORREÇÃO: Pega o ID do editingProduct se estiver editando
+      const currentProductId = editingProduct.value?.id || productId.value;
+      
+      console.log('📁 Arquivo:', file.name);
+      console.log('📁 productId.value:', productId.value);
+      console.log('📁 editingProduct.value?.id:', editingProduct.value?.id);
+      console.log('📁 ID que será usado:', currentProductId);
+      
+      if (!currentProductId || currentProductId === 0) {
+        console.error('❌ Product ID inválido!');
+        alert('Erro: Salve o produto primeiro antes de adicionar imagens.');
+        return;
+      }
+      
+      try {
+        console.log('📤 Fazendo upload para produto ID:', currentProductId);
+        
+        await createFile(file, currentProductId);
+        
+        console.log('✅ Upload concluído!');
+        
+        // Recarrega a lista
+        await productsWithParams({ page: page.value, limit: limit.value });
+        
+        alert('Imagem enviada com sucesso!');
+        
+      } catch (error: any) {
+        console.error('❌ Erro no upload:', error);
+        alert(`Erro no upload: ${error.response?.data || error.message}`);
+      }
+    };
 
     const uploadFile = async (selectedImage) => {
       try {
@@ -498,6 +638,15 @@ export default defineComponent({
     });
 
     return {
+      redirectToBuchas,
+      redirectToBases,
+      redirectToAcionamentos,
+      isAlertDeleteProductModalOpen,
+      productToDelete,
+      openAlertDeleteProductModal,
+      closeDeleteModal,
+      confirmDelete,
+      inactivateProduct,
       isLoadingFilters,
       isBuchaFilterWithValue,
       isBaseFilterWithValue,
@@ -565,7 +714,8 @@ export default defineComponent({
       filterBase,
       logout,
       handleFileInput,
-      selectedProduct
+      selectedProduct,
+      productId,
     };
   },
 });
@@ -640,7 +790,7 @@ export default defineComponent({
                 </svg>
 
 
-                Adicionar
+                Cadastros
               </button>
 
               <!-- Dropdown -->
@@ -867,8 +1017,8 @@ export default defineComponent({
 
                       <div class="relative group">
                         <button 
-                          class="p-1.5 bg-red-900 text-white rounded-sm hover:bg-red-700 transition-colors hover:cursor-pointer"
-                          @click="deleteProduct(product.id)"
+                          class="p-1.5 bg-red-700 text-white rounded-sm hover:bg-red-600 transition-colors hover:cursor-pointer"
+                          @click="openAlertDeleteProductModal(product)"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -913,6 +1063,66 @@ export default defineComponent({
 
     </div>
     
+
+        <div
+          v-if="isAlertDeleteProductModalOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
+        >
+          <div class="relative bg-neutral-200 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            
+            <!-- Header do Modal -->
+            <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja excluir o produto?</h3>
+                  <!-- Mostra qual produto será excluído -->
+                  <p v-if="productToDelete" class="text-md text-gray-600 mt-2">
+                    Código: <span class="font-semibold">{{ productToDelete.codigo }}</span>
+                  </p>
+                </div>
+                <button
+                  @click="closeDeleteModal"
+                  class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-black">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Conteúdo -->
+            <div class="px-6 py-6">
+              <div class="space-y-5">
+                <h1 class="text-black">Se você prosseguir, o registro do produto será <span class="text-italic text-red-600 underline">apagado</span> <span class="text-italic text-red-600 underline">permanentemente</span>.</h1>
+
+                <h1 class="text-black">Se você quer ainda manter o registro, você pode apenas <span class="text-black font-bold">desativar</span> o produto</h1>
+              </div>
+            </div>
+
+            <!-- Footer com botões -->
+            <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
+              <div class="flex gap-3">
+                <button
+                  @click="confirmDelete"
+                  class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
+                >
+                  Excluir mesmo assim
+                </button>
+                <button
+                  @click="inactivateProduct"
+                  class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                  Inativar
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
 
         <!-- Modal editar -->
         <div
@@ -1291,12 +1501,13 @@ export default defineComponent({
                         <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
                         <div class="flex items-center gap-3">
                           <span class="text-sm font-medium text-black">
-                            {{ isActive ? 'Ativo' : 'Inativo' }}
+                            {{ editingProduct?.ativo ? 'Ativo' : 'Inativo' }}
                           </span>
                           <label class="relative inline-flex items-center cursor-pointer">
                             <input 
                               type="checkbox" 
-                              v-model="isActive"
+                              :checked="editingProduct?.ativo"
+                              @change="editingProduct.ativo = $event.target.checked"
                               class="sr-only peer"
                             >
                             <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -1805,12 +2016,14 @@ export default defineComponent({
                         <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
                         <div class="flex items-center gap-3">
                           <span class="text-sm font-medium text-black">
-                            {{ isActive ? 'Ativo' : 'Inativo' }}
+                            {{ newProduct?.ativo ? 'Ativo' : 'Inativo' }}
                           </span>
                           <label class="relative inline-flex items-center cursor-pointer">
                             <input 
                               type="checkbox" 
-                              v-model="isActive"
+                              :checked="newProduct?.ativo"
+                              @change="newProduct.ativo = $event.target.checked"
+
                               class="sr-only peer"
                             >
                             <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -2043,6 +2256,31 @@ export default defineComponent({
 
 
         <!-- Repita o card ou use v-for -->
+
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-600 justify-between flex flex-cols-2 mt-10">
+            <div class="flex items-center">
+              <p class="text-md text-black">
+                Mostrando <span class="font-semibold">{{ products.length }}</span> Produto(s)
+              </p>
+              <!-- Aqui você pode adicionar paginação depois -->
+            </div>
+
+            <div class="flex flex-cols-2">
+
+              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
+              </svg>
+
+              <h1 class="py-0.5 text-black">
+                Página {{ page }}
+              </h1>
+              
+              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
+              </svg>
+
+            </div>
+          </div>
         
       </div>
 

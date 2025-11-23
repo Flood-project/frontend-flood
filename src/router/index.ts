@@ -10,6 +10,9 @@ import { getClaims, isTokenExpired } from "../services/jwt_decoder"
 import { RefreshMethod } from "../modules/login/repository/login_repository"
 import Logs_page from "../modules/catalog/view/admin/logs_page.txt"
 import Forgot_password from "../modules/login/view/forgot_password.vue"
+import Acionamentos_page from "../modules/catalog/view/admin/acionamentos_page.vue"
+import Buchas_page from "../modules/catalog/view/admin/buchas_page.vue"
+import Bases_page from "../modules/catalog/view/admin/bases_page.vue"
 
 const router = createRouter({
     history: createWebHistory(),
@@ -63,6 +66,24 @@ const router = createRouter({
             path: '/esqueci-minha-senha',
             name: 'esqueci_senha',
             component: Forgot_password
+        },
+        {
+            path: '/admin/acionamentos',
+            name: 'acionamentos_admin',
+            component: Acionamentos_page,
+            meta: { requiresAuth: true, role: 1}
+        },
+        {
+            path: '/admin/buchas',
+            name: 'buchas_admin',
+            component: Buchas_page,
+            meta: { requiresAuth: true, role: 1}
+        },
+        {
+            path: '/admin/bases',
+            name: 'bases_admin',
+            component: Bases_page,
+            meta: { requiresAuth: true, role: 1}
         }
         // {
         //     path: "/admin/logs",
