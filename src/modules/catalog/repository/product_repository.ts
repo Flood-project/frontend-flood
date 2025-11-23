@@ -8,8 +8,16 @@ export const fetchProducts = async (): Promise<Product[]> => {
 }
 
 export const fetchById = async (id: number): Promise<Product> => {
-  const response = await instance.get<Product>(`/products/${id}`);
-  return response.data;
+  try {
+    const response = await instance.get<Product>(`/products/${id}`);
+    console.log(response.data);
+    return response.data;
+     
+  } catch (error) {
+    console.log('Erro ao listar produto por id', error);
+    
+  }
+  
 }
 
 export async function deleteProductById(id: number) {
@@ -71,7 +79,12 @@ export const filterWithParams = async (params: FilterParams) => {
       page: params.page ?? 1,
       limit: params.limit ?? 10,
     },
+    
+    
   })
+  console.log(params);
+  console.log(response);
+  
   return response.data // <-- garante que retorna o objeto completo
 }
 
