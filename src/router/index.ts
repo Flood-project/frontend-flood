@@ -8,7 +8,7 @@ import Admin_catalog from "../modules/catalog/view/admin/admin_catalog.vue"
 import { getAccessToken, getRefreshToken, removeAccessTokens, setAccessToken } from "../services/token"
 import { getClaims, isTokenExpired } from "../services/jwt_decoder"
 import { RefreshMethod } from "../modules/login/repository/login_repository"
-import Logs_page from "../modules/catalog/view/admin/logs_page.txt"
+import Logs_page from "../modules/catalog/view/admin/logs_page.vue"
 import Forgot_password from "../modules/login/view/forgot_password.vue"
 import Acionamentos_page from "../modules/catalog/view/admin/acionamentos_page.vue"
 import Buchas_page from "../modules/catalog/view/admin/buchas_page.vue"
@@ -84,13 +84,13 @@ const router = createRouter({
             name: 'bases_admin',
             component: Bases_page,
             meta: { requiresAuth: true, role: 1}
+        },
+        {
+            path: "/admin/logs",
+            name: 'logs',
+            component: Logs_page,
+            meta: { requiresAuth: true, role: 1}
         }
-        // {
-        //     path: "/admin/logs",
-        //     name: 'logs',
-        //     component: Logs_page,
-        //     meta: { requiresAuth: true, role: 1}
-        // }
     ]
 })
 

@@ -73,6 +73,18 @@ export default defineComponent({
 
     };
 
+    const redirectToLogs = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/logs'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
      const isAdicionarOpen = ref(false);
 
     const menuRef = ref<HTMLElement | null>(null);
@@ -232,7 +244,8 @@ export default defineComponent({
       isAdicionarOpen,
       menuRef,
       selectAddOption,
-      redirectToHomePage
+      redirectToHomePage,
+      redirectToLogs
     };
   },
 });
@@ -291,7 +304,7 @@ export default defineComponent({
 
             <button
               @click="redirectToLogs"
-              class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+              class="text-black hover:bg-orange-500 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
             >
               Auditoria
             </button>
@@ -352,6 +365,8 @@ export default defineComponent({
       <!-- título -->
 
     <div class="w-full max-w-screen-2xl mx-auto px-4 mt-10">
+
+        <div class="rounded-2xl overflow-hidden">
   
         <!-- Repita o card ou use v-for -->
 
@@ -451,19 +466,9 @@ export default defineComponent({
               </p>
               <!-- Aqui você pode adicionar paginação depois -->
             </div>
-
-            <div class="flex flex-cols-2">
-
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
-              </svg>
-              
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
-              </svg>
-
-            </div>
           </div>
+
+        </div>
 
 
 
@@ -650,31 +655,6 @@ export default defineComponent({
 
       </div>
     </div>
-
-        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-600 justify-between flex flex-cols-2 mt-10">
-            <div class="flex items-center">
-              <p class="text-md text-black">
-                Mostrando <span class="font-semibold">{{ bases.length }}</span> Base(s)
-              </p>
-              <!-- Aqui você pode adicionar paginação depois -->
-            </div>
-
-            <div class="flex flex-cols-2">
-
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
-              </svg>
-
-              <h1 class="py-0.5 text-black">
-                Página {{ page }}
-              </h1>
-              
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
-              </svg>
-
-            </div>
-          </div>
         
       </div>
 

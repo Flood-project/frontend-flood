@@ -32,10 +32,13 @@ export async function updateProduct(id: number, product: Product) {
   return response.data;
 }
 
-export async function createProduct (product: Product) {
+export async function createProduct(product: Product) {
   const response = await instance.post(`/products`, product);
-  console.log(product, "chamando create product")
-  if (response.status != 200) throw new Error("Erro ao adicionar produto");
+  console.log(product, "chamando create product");
+  if (response.status !== 201 && response.status !== 200) {
+    throw new Error("Erro ao adicionar produto");
+  }
+  return response.data; // ← ADICIONE ESTE RETURN!
 }
 
 export const fetchWithComponents = async (): Promise<ProductWithComponents[]> => {
