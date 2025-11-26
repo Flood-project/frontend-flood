@@ -103,7 +103,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -119,9 +119,6 @@ export default defineComponent({
     </transition>
 
     <div class="flex flex-col items-center w-full">
-
-       <div class="bg-emerald-900 w-full h-20"></div>
-
 
     <header class="mb-10 bg-gray-200 w-full h-28 flex items-center justify-center shadow-md rounded-xl px-8">
 

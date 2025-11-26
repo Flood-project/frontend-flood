@@ -1,6 +1,7 @@
 import type { Product } from "../domain/product";
 import { getWithPagination, instance } from "../../../services/axios";
 import type { ProductWithComponents } from "../domain/productWithComponents";
+import { data } from "autoprefixer";
 
 export const fetchProducts = async (): Promise<Product[]> => {
     const response = await instance.get<Product[]>('/products');
@@ -38,7 +39,9 @@ export async function createProduct(product: Product) {
   if (response.status !== 201 && response.status !== 200) {
     throw new Error("Erro ao adicionar produto");
   }
-  return response.data; // ← ADICIONE ESTE RETURN!
+  return response.data;
+
+  console.log("informações do produto", data)
 }
 
 export const fetchWithComponents = async (): Promise<ProductWithComponents[]> => {

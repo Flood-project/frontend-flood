@@ -118,6 +118,8 @@ export default defineComponent({
 
     const addBucha = async (newBucha: Bucha) => {
 
+      isLoading.value = true;
+
       errorMessageBucha.value = '';
 
       isAddBuchaModalOpen.value = true;
@@ -128,7 +130,12 @@ export default defineComponent({
       }
 
       await createBucha(newBucha);
+
+      buchas.value = await fetchBuchas()
+
       isAddBuchaModalOpen.value = false;
+
+      isLoading.value = false;
     };
 
     const buchaId = ref(0)
@@ -154,6 +161,11 @@ export default defineComponent({
       }
 
       if (editingbucha) {
+
+        isEditBuchaModalOpen.value = false 
+
+         isLoading.value = true;
+
         const updated = await updateBucha(editingbucha.id, editingbucha);
         // atualiza na lista
 
@@ -161,7 +173,8 @@ export default defineComponent({
         if (index !== -1) {
           buchas.value[index] = updated;
         }
-        isEditBuchaModalOpen.value = false // fecha modal/edição
+
+        isLoading.value = false;
       }
     };
 
@@ -189,6 +202,9 @@ export default defineComponent({
       console.log('🗑️ Excluindo produto:', buchaToDelete.value.id);
 
       try {
+
+        isLoading.value = true;
+
         await deleteBuchaById(buchaToDelete.value.id);
         
         // Remove da lista local
@@ -205,6 +221,8 @@ export default defineComponent({
         console.error('❌ Erro ao excluir Bucha:', error);
         alert('Erro ao excluir Bucha. Tente novamente.');
       }
+
+      isLoading.value = false;
     };
      
     const logout = () => {
@@ -264,7 +282,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -505,6 +523,7 @@ export default defineComponent({
               v-model="editingbucha!.tipobucha"
               type="text"
               placeholder="Ex: Bucha Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageBucha" class="text-red-500 text-sm mt-1">{{ errorMessageBucha }}</p>
@@ -626,6 +645,7 @@ export default defineComponent({
               v-model="newBucha!.tipobucha"
               type="text"
               placeholder="Ex: Bucha Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageBucha" class="text-red-500 text-sm mt-1">{{ errorMessageBucha }}</p>

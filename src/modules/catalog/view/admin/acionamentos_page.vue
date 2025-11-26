@@ -123,6 +123,8 @@ export default defineComponent({
 
     const addAcionamento = async (newAcionamento: Acionamento) => {
 
+      isLoading.value = true;
+
       errorMessageAcionamento.value = '';
 
       isAddAcionamentoModalOpen.value = true;
@@ -133,7 +135,12 @@ export default defineComponent({
       }
 
       await createAcionamento(newAcionamento);
+
+      acionamentos.value = await fetchAcionamentos()
+
       isAddAcionamentoModalOpen.value = false;
+
+      isLoading.value = false;
     };
 
     const acionamentoId = ref(0)
@@ -159,6 +166,9 @@ export default defineComponent({
       }
 
       if (editingAcionamento) {
+
+         isLoading.value = true;
+
         const updated = await updateAcionamento(editingAcionamento.id, editingAcionamento);
         // atualiza na lista
 
@@ -166,7 +176,9 @@ export default defineComponent({
         if (index !== -1) {
           acionamentos.value[index] = updated;
         }
-        isEditAcionamentoModalOpen.value = false // fecha modal/edição
+        isEditAcionamentoModalOpen.value = false
+
+         isLoading.value = false;
       }
     };
 
@@ -186,6 +198,7 @@ export default defineComponent({
     };
 
     const confirmDelete = async () => {
+      
       if (!acionamentoToDelete.value) {
         console.error('❌ Nenhum acionamento selecionado para exclusão');
         return;
@@ -194,6 +207,9 @@ export default defineComponent({
       console.log('🗑️ Excluindo produto:', acionamentoToDelete.value.id);
 
       try {
+
+        isLoading.value = true;
+
         await deleteAcionamentoById(acionamentoToDelete.value.id);
         
         // Remove da lista local
@@ -204,12 +220,12 @@ export default defineComponent({
         // Fecha o modal
         closeDeleteModal();
         
-        alert('Acionamento excluído com sucesso!');
-        
       } catch (error) {
         console.error('❌ Erro ao excluir acionamento:', error);
         alert('Erro ao excluir acionamento. Tente novamente.');
       }
+
+      isLoading.value = false;
     };
      
     const logout = () => {
@@ -269,7 +285,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -509,6 +525,7 @@ export default defineComponent({
               v-model="editingAcionamento!.tipoacionamento"
               type="text"
               placeholder="Ex: Acionamento Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageAcionamento" class="text-red-500 text-sm mt-1">{{ errorMessageAcionamento }}</p>
@@ -630,6 +647,7 @@ export default defineComponent({
               v-model="newAcionamento!.tipoacionamento"
               type="text"
               placeholder="Ex: Acionamento Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageAcionamento" class="text-red-500 text-sm mt-1">{{ errorMessageAcionamento }}</p>

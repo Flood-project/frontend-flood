@@ -417,6 +417,8 @@ export default defineComponent({
       buchas.value = await fetchBuchas();
       bases.value = await fetchBases();
       search.value = "";
+
+      checkUserGroup();
       
       // Event listeners
       document.addEventListener("click", handleClickOutside);
@@ -485,6 +487,7 @@ export default defineComponent({
     });
 
     return {
+      checkUserGroup,
       currentImageNumber,
       previousMainImage,
       nextMainImage,
@@ -556,7 +559,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -751,16 +754,57 @@ export default defineComponent({
               class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
             >
               <!-- Foto -->
-              <div v-if="product.images && product.images.length > 0">
-                <img 
-                  :src="product.images[0].url" 
-                  :alt="product.images[0].file_name"
-                >
-                <!-- class for images if too big: class="w-full h-100 object-cover" -->
-              </div>
-              <div v-else class="w-full h-48 bg-gray-200 rounded-t-xl flex items-center justify-center">
-                <span class="text-gray-500">Sem imagem</span>
-              </div>
+              <div v-if="product.images && product.images.length > 0" class="relative group">
+                  <!-- Imagem atual -->
+                  <img 
+                    :src="product.images[currentImageIndex[product.id] || 0].url" 
+                    :alt="product.images[currentImageIndex[product.id] || 0].file_name"
+                    class="w-full h-82 object-vover rounded-t-xl"
+                  >
+                  
+                  <!-- Botões de navegação (aparecem no hover) -->
+                  <div v-if="product.images.length > 1" class="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <!-- Botão anterior -->
+                    <button
+                      @click.stop="previousImage(product.id, product.images.length)"
+                      class="hover:cursor-pointer bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all hover:scale-110"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
+                    
+                    <!-- Botão próximo -->
+                    <button
+                      @click.stop="nextImage(product.id, product.images.length)"
+                      class="hover:cursor-pointer bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all hover:scale-110"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <!-- Indicadores de imagem (bolinhas) -->
+                  <div v-if="product.images.length > 1" class="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+                    <button
+                      v-for="(image, index) in product.images"
+                      :key="index"
+                      @click.stop="goToImage(product.id, index)"
+                      class="w-2 h-2 rounded-full transition-all hover:scale-125"
+                      :class="(currentImageIndex[product.id] || 0) === index ? 'bg-white w-6' : 'bg-white/50'"
+                    ></button>
+                  </div>
+                  
+                  <!-- Contador de imagens -->
+                  <div v-if="product.images.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                    {{ (currentImageIndex[product.id] || 0) + 1 }} / {{ product.images.length }}
+                  </div>
+                </div>
+
+                <div v-else class="w-full h-82 bg-gray-200 rounded-t-xl flex items-center justify-center">
+                  <span class="text-gray-500">Sem imagem</span>
+                </div>
 
               <!-- Conteúdo -->
               <div class="p-5 flex flex-col space-y-4">
@@ -816,11 +860,11 @@ export default defineComponent({
         v-if="isProductDetailsOpen && selectedProduct"
         class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60 z-40"
       >
-        <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl max-h-[95vh] overflow-y-auto">
 
           <button
             @click="isProductDetailsOpen = false"
-            class="absolute top-4 right-4 text-gray-700 p-3 hover:cursor-pointer hover:bg-gray-400 rounded-lg z-10"
+            class="absolute top-4 right-4 text-gray-700 p-3 hover:cursor-pointer hover:bg-gray-400 rounded-lg z-10 group"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-7 h-7">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -830,15 +874,16 @@ export default defineComponent({
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
 
             <!-- Coluna: imagens -->
-            <div class="flex flex-col h-[500px] w-full gap-4">
+            <div class="flex flex-col h-[600px] w-full gap-4">
               
               <!-- Imagem principal -->
-              <div class="flex-1 flex justify-start items-start rounded-lg p-2 min-h-[400px] group relative">
+              <!-- Imagem principal -->
+              <div class="flex-1 flex justify-center items-center rounded-lg min-h-[500px] relative group">
                 <img
                   v-if="selectedImage"
                   :src="selectedImage"
                   alt="Imagem principal"
-                  class="h-full max-h-[400px] w-auto object-fill rounded transition-all duration-300 cursor-zoom-in"
+                  class="max-h-[500px] max-w-full w-auto h-auto object-contain rounded transition-all duration-300 cursor-zoom-in"
                   @click="applySelectedImageZoom"
                 />
                 <div v-else class="w-full h-full flex items-center justify-center text-gray-500">
@@ -850,32 +895,31 @@ export default defineComponent({
                   </div>
                 </div>
 
+                <!-- Setas aparecem por cima da imagem no hover -->
                 <button
-                v-if="detailsImages.length > 1 && selectedImage"
-                @click.stop="previousMainImage"
-                class="hover:cursor-pointer absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                </svg>
-              </button>
+                  v-if="detailsImages.length > 1 && selectedImage"
+                  @click.stop="previousMainImage"
+                  class="hover:cursor-pointer absolute left-6 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
 
-              <button
-                v-if="detailsImages.length > 1 && selectedImage"
-                @click.stop="nextMainImage"
-                class="hover:cursor-pointer absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </button>
-
+                <button
+                  v-if="detailsImages.length > 1 && selectedImage"
+                  @click.stop="nextMainImage"
+                  class="hover:cursor-pointer absolute right-6 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
               </div>
-              
 
               <!-- Miniaturas -->
-              <div class="h-24 flex justify-start items-center gap-2">
-                <div v-if="detailsImages.length > 0" class="flex gap-2 overflow-x-auto pb-2">
+              <div class="h-24 flex justify-center items-center">
+                <div v-if="detailsImages.length > 0" class="flex gap-2 overflow-x-auto pb-2 max-w-full">
                   <div
                     v-for="(img, index) in detailsImages"
                     :key="img.id || index"
@@ -929,15 +973,7 @@ export default defineComponent({
 
                   </div>
 
-                  <div class="mt-4">
-                  <a
-                    :href="`https://wa.me/555433592200?text=${encodeURIComponent('Olá! Vim do catálogo e quero saber mais sobre o produto ' + fetchedProduct.codigo)}`"
-                    target="_blank"
-                    class="w-full block text-center bg-emerald-800 text-white font-semibold py-4 rounded-lg hover:bg-emerald-700 transition"
-                  >
-                    Contatar equipe comercial
-                  </a>
-                </div>
+
 
                 </div>
 
@@ -952,10 +988,9 @@ export default defineComponent({
           <div
             v-if="isImageZoomApplied"
             class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
-            @click="closeZoom"
           >
             <div class="relative w-full h-full flex items-center justify-center">
-              <button @click="closeZoom" class="absolute hover:cursor-pointer top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
+              <button @click="closeZoom" class="hover:cursor-pointer absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>

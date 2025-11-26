@@ -420,58 +420,68 @@ export default defineComponent({
       isAddModalOpen.value = true
     }
 
-    
+    const selectedImage = ref<string>('');
+    const selectedProduct = ref<Product | null>(null);    
 
     const isLoadingDetails = ref(false);
 
+    const imageUrls = ref<Record<string, string>>({});
+
     const showProductDetails = async (p: Product) => {
+        console.log('🔵 showProductDetails - produto:', p);
+        console.log('🔵 Imagens do produto p:', p.images);
 
-      console.log('🔵 showProductDetails - produto:', p);
-      console.log('🔵 Imagens do produto:', p.images);
+        selectedProduct.value = p;
 
-      selectedProduct.value = p;
-  
-  // Define a primeira imagem como selecionada
-      if (p.images && p.images.length > 0) {
-        selectedImage.value = p.images[0]?.url || '';
-        console.log('✅ selectedImage definido:', selectedImage.value);
-      } else {
-        selectedImage.value = '';
-        console.log('⚠️ Produto sem imagens');
-      }
-      
-      try {
-        isLoadingDetails.value = true;
-
-        const response = await fetchById(p.id);
-
-        fetchedProduct.value = {
-          ...response,
-          tipoacionamento: acionamentoMap.value[response.id_acionamento] || "Desconhecido",
-          tipobucha: buchaMap.value[response.id_bucha] || "Desconhecido",
-          tipobase: baseMap.value[response.id_base] || "Desconhecido",
-        };
-
-        // Delay mínimo para mostrar feedback visual
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        if (fetchedProduct.value.images && fetchedProduct.value.images.length > 0) {
-          console.log('📸 Atualizando com imagens do fetchById');
-          selectedProduct.value = fetchedProduct.value;
-          if (!selectedImage.value) {
-            selectedImage.value = fetchedProduct.value.images[0].url;
-          }
+        // Define a primeira imagem como selecionada
+        if (p.images && p.images.length > 0) {
+          selectedImage.value = p.images[0]?.url || '';
+          console.log('✅ selectedImage inicial definido:', selectedImage.value);
+        } else {
+          selectedImage.value = '';
+          console.log('⚠️ Produto sem imagens');
         }
+        
+        try {
+          isLoadingDetails.value = true;
 
-        isProductDetailsOpen.value = true;
+          const response = await fetchById(p.id);
+          console.log('📦 Response do fetchById:', response);
 
-      } catch (error) {
-        console.error('❌ Erro ao carregar detalhes:', error);
-        alert('Erro ao carregar os detalhes do produto. Tente novamente.');
-      } finally {
-        isLoadingDetails.value = false;
-      }
-    };
+          fetchedProduct.value = {
+            ...response,
+            tipoacionamento: acionamentoMap.value[response.id_acionamento] || "Desconhecido",
+            tipobucha: buchaMap.value[response.id_bucha] || "Desconhecido",
+            tipobase: baseMap.value[response.id_base] || "Desconhecido",
+          };
+
+          console.log('📦 fetchedProduct.value:', fetchedProduct.value);
+
+          // AS IMAGENS JÁ VÊM COM URL! Não precisa processar nada
+          console.log('✅ Imagens já têm URL:', fetchedProduct.value.images);
+
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Atualiza selectedProduct e selectedImage
+          selectedProduct.value = fetchedProduct.value;
+          
+          if (fetchedProduct.value.images && fetchedProduct.value.images.length > 0) {
+            selectedImage.value = fetchedProduct.value.images[0].url;
+            console.log('🎯 selectedImage atualizado para:', selectedImage.value);
+          }
+
+          console.log('🏁 selectedProduct final:', selectedProduct.value);
+          console.log('🏁 selectedImage final:', selectedImage.value);
+
+          isProductDetailsOpen.value = true;
+
+        } catch (error) {
+          console.error('❌ Erro ao carregar detalhes:', error);
+          alert('Erro ao carregar os detalhes do produto. Tente novamente.');
+        } finally {
+          isLoadingDetails.value = false;
+        }
+      };
 
     // Salvar edição
     const editProduct = async () => {
@@ -539,13 +549,13 @@ export default defineComponent({
           
           // 2. Faz upload das imagens (se houver)
           if (Object.keys(selectedFiles.value).length > 0) {
-          console.log('📤 Iniciando upload de imagens...');
-          await uploadAllFiles(createdProduct.id);
-          console.log('✅ Upload de imagens concluído!');
-        } else {
-          console.log('📁 Nenhuma imagem para upload');
-        }
-          
+            console.log('📤 Iniciando upload de imagens...');
+            await uploadAllFiles(createdProduct.id);
+            console.log('✅ Upload de imagens concluído!');
+          } else {
+            console.log('📁 Nenhuma imagem para upload');
+          }
+            
           // 3. Recarrega a lista
           await productsWithParams({ page: page.value, limit: limit.value });
           isAddModalOpen.value = false;
@@ -645,9 +655,6 @@ export default defineComponent({
       await productsWithParams({ page: page.value, limit: limit.value });
     };
 
-    const selectedImage = ref<string>('');
-    const selectedProduct = ref<Product | null>(null);
-
     const redirectToLogs = async () => {
 
       const claims = getClaims();
@@ -670,6 +677,8 @@ export default defineComponent({
     const handleFileInput = (event: Event, inputId?: number) => {
       const target = event.target as HTMLInputElement;
       const file = target.files?.[0];
+
+      console.log(file, inputId)
       
       if (!file || !inputId) {
         console.log('❌ Nenhum arquivo selecionado');
@@ -782,12 +791,20 @@ export default defineComponent({
 
     // Computed para pegar as imagens do produto nos detalhes
     const detailsImages = computed(() => {
+      console.log('🔍 detailsImages sendo chamado');
+      console.log('🔍 selectedProduct.value:', selectedProduct.value);
+      console.log('🔍 selectedProduct.value?.images:', selectedProduct.value?.images);
+      
       if (!selectedProduct.value?.images) {
         console.log('⚠️ selectedProduct sem imagens');
         return [];
       }
-      console.log('✅ detailsImages:', selectedProduct.value.images.length, 'imagens');
-      return selectedProduct.value.images;
+      
+      const imgs = selectedProduct.value.images;
+      console.log('✅ detailsImages retornando:', imgs);
+      console.log('✅ Primeira imagem detalhada:', imgs[0]);
+      
+      return imgs;
     });
 
     // Índice da imagem atual NO ZOOM
@@ -1017,6 +1034,7 @@ export default defineComponent({
       selectedProduct,
       paginateAhead,
       paginateReturn,
+      imageUrls
     };
   },
 });
@@ -1035,7 +1053,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -1319,7 +1337,7 @@ export default defineComponent({
                   </div>
                 </div>
                 
-                <div v-else class="w-full h-64 bg-gray-200 rounded-t-xl flex items-center justify-center">
+                <div v-else class="w-full h-82 bg-gray-200 rounded-t-xl flex items-center justify-center">
                   <span class="text-gray-500">Sem imagem</span>
                 </div>
               <!-- Foto -->
@@ -1916,7 +1934,7 @@ export default defineComponent({
         v-if="isProductDetailsOpen && selectedProduct"
         class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60 z-40"
       >
-        <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl max-h-[95vh] overflow-y-auto">
 
           <button
             @click="isProductDetailsOpen = false"
@@ -1930,51 +1948,52 @@ export default defineComponent({
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
 
             <!-- Coluna: imagens -->
-            <div class="flex flex-col h-[500px] w-full gap-4">
+            <div class="flex flex-col h-[600px] w-full gap-4">
               
               <!-- Imagem principal -->
-              <div class="flex-1 flex justify-start items-start rounded-lg p-2 min-h-[400px] group relative">
+              <!-- Imagem principal -->
+              <div class="flex-1 flex justify-center items-center rounded-lg min-h-[500px] relative group">
                 <img
                   v-if="selectedImage"
                   :src="selectedImage"
                   alt="Imagem principal"
-                  class="h-full max-h-[400px] w-auto object-fill rounded transition-all duration-300 cursor-zoom-in"
+                  class="max-h-[500px] max-w-full w-auto h-auto object-contain rounded transition-all duration-300 cursor-zoom-in"
                   @click="applySelectedImageZoom"
                 />
-               <div v-else class="w-full h-full flex items-center justify-center text-gray-500">
-                <div class="text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 mx-auto mb-2 text-gray-400">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                  </svg>
-                  <p class="text-lg">Sem imagem</p>
+                <div v-else class="w-full h-full flex items-center justify-center text-gray-500">
+                  <div class="text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 mx-auto mb-2 text-gray-400">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                    </svg>
+                    <p class="text-lg">Sem imagem</p>
+                  </div>
                 </div>
-              </div>
 
-               <button
-                v-if="detailsImages.length > 1 && selectedImage"
-                @click.stop="previousMainImage"
-                class="hover:cursor-pointer absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                </svg>
-              </button>
+                <!-- Setas aparecem por cima da imagem no hover -->
+                <button
+                  v-if="detailsImages.length > 1 && selectedImage"
+                  @click.stop="previousMainImage"
+                  class="hover:cursor-pointer absolute left-6 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
 
-              <button
-                v-if="detailsImages.length > 1 && selectedImage"
-                @click.stop="nextMainImage"
-                class="hover:cursor-pointer absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </button>
-
+                <button
+                  v-if="detailsImages.length > 1 && selectedImage"
+                  @click.stop="nextMainImage"
+                  class="hover:cursor-pointer absolute right-6 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
               </div>
 
               <!-- Miniaturas -->
-              <div class="h-24 flex justify-start items-center gap-2">
-                <div v-if="detailsImages.length > 0" class="flex gap-2 overflow-x-auto pb-2">
+              <div class="h-24 flex justify-center items-center">
+                <div v-if="detailsImages.length > 0" class="flex gap-2 overflow-x-auto pb-2 max-w-full">
                   <div
                     v-for="(img, index) in detailsImages"
                     :key="img.id || index"
@@ -2413,24 +2432,27 @@ export default defineComponent({
                   <div class="grid grid-cols-3 gap-4">
                     <input 
                       type="file" 
+                      id="file-input-1"
                       class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
-                      @change="(event) => handleFileInput(event)"
+                      @change="(event) => handleFileInput(event, 1)"
                       accept="image/*"
                       multiple
                     />
 
                     <input 
                       type="file" 
+                      id="file-input-2"
                       class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
-                      @change="(event) => handleFileInput(event)"
+                      @change="(event) => handleFileInput(event, 2)"
                       accept="image/*"
                       multiple
                     />
 
                     <input 
                       type="file" 
+                      id="file-input-3"
                       class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
-                      @change="(event) => handleFileInput(event)"
+                      @change="(event) => handleFileInput(event, 3)"
                       accept="image/*"
                       multiple
                     />
@@ -2443,13 +2465,13 @@ export default defineComponent({
                       <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
                       <div class="flex items-center gap-3">
                         <span class="text-sm font-medium text-black">
-                          {{ editingProduct?.ativo ? 'Ativo' : 'Inativo' }}
+                          {{ newProduct?.ativo ? 'Ativo' : 'Inativo' }}
                         </span>
                         <label class="relative inline-flex items-center cursor-pointer">
                           <input 
                             type="checkbox" 
-                            :checked="editingProduct?.ativo"
-                            @change="editingProduct.ativo = $event.target.checked"
+                            :checked="newProduct?.ativo"
+                            @change="newProduct.ativo = $event.target.checked"
                             class="sr-only peer"
                           >
                           <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>

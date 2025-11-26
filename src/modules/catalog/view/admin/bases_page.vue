@@ -118,6 +118,8 @@ export default defineComponent({
 
     const addBase = async (newBase: Base) => {
 
+       isLoading.value = true;
+
       errorMessageBase.value = '';
 
       isAddBaseModalOpen.value = true;
@@ -128,7 +130,12 @@ export default defineComponent({
       }
 
       await createBase(newBase);
+
+      bases.value = await fetchBases();
+
       isAddBaseModalOpen.value = false;
+
+       isLoading.value = false;
     };
 
     const baseId = ref(0)
@@ -154,6 +161,9 @@ export default defineComponent({
       }
 
       if (editingBase) {
+
+         isLoading.value = true;
+
         const updated = await updateBase(editingBase.id, editingBase);
         // atualiza na lista
 
@@ -161,7 +171,9 @@ export default defineComponent({
         if (index !== -1) {
           bases.value[index] = updated;
         }
-        isEditBaseModalOpen.value = false // fecha modal/edição
+        isEditBaseModalOpen.value = false
+        
+         isLoading.value = false;// fecha modal/edição
       }
     };
 
@@ -189,6 +201,9 @@ export default defineComponent({
       console.log('🗑️ Excluindo produto:', baseToDelete.value.id);
 
       try {
+
+        isLoading.value = true;
+
         await deleteBaseById(baseToDelete.value.id);
         
         // Remove da lista local
@@ -205,6 +220,8 @@ export default defineComponent({
         console.error('❌ Erro ao excluir Base:', error);
         alert('Erro ao excluir Base. Tente novamente.');
       }
+
+       isLoading.value = false;
     };
      
     const logout = () => {
@@ -264,7 +281,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -505,6 +522,7 @@ export default defineComponent({
               v-model="editingBase!.tipobase"
               type="text"
               placeholder="Ex: Base Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageBase" class="text-red-500 text-sm mt-1">{{ errorMessageBase }}</p>
@@ -626,6 +644,7 @@ export default defineComponent({
               v-model="newBase!.tipobase"
               type="text"
               placeholder="Ex: Base Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageBase" class="text-red-500 text-sm mt-1">{{ errorMessageBase }}</p>
