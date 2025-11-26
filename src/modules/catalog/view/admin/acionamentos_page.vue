@@ -78,6 +78,18 @@ export default defineComponent({
 
     };
 
+    const redirectToLogs = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/logs'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
      const isAdicionarOpen = ref(false);
 
     const menuRef = ref<HTMLElement | null>(null);
@@ -111,6 +123,8 @@ export default defineComponent({
 
     const addAcionamento = async (newAcionamento: Acionamento) => {
 
+      isLoading.value = true;
+
       errorMessageAcionamento.value = '';
 
       isAddAcionamentoModalOpen.value = true;
@@ -121,7 +135,12 @@ export default defineComponent({
       }
 
       await createAcionamento(newAcionamento);
+
+      acionamentos.value = await fetchAcionamentos()
+
       isAddAcionamentoModalOpen.value = false;
+
+      isLoading.value = false;
     };
 
     const acionamentoId = ref(0)
@@ -147,6 +166,9 @@ export default defineComponent({
       }
 
       if (editingAcionamento) {
+
+         isLoading.value = true;
+
         const updated = await updateAcionamento(editingAcionamento.id, editingAcionamento);
         // atualiza na lista
 
@@ -154,7 +176,9 @@ export default defineComponent({
         if (index !== -1) {
           acionamentos.value[index] = updated;
         }
-        isEditAcionamentoModalOpen.value = false // fecha modal/edição
+        isEditAcionamentoModalOpen.value = false
+
+         isLoading.value = false;
       }
     };
 
@@ -174,6 +198,7 @@ export default defineComponent({
     };
 
     const confirmDelete = async () => {
+      
       if (!acionamentoToDelete.value) {
         console.error('❌ Nenhum acionamento selecionado para exclusão');
         return;
@@ -182,6 +207,9 @@ export default defineComponent({
       console.log('🗑️ Excluindo produto:', acionamentoToDelete.value.id);
 
       try {
+
+        isLoading.value = true;
+
         await deleteAcionamentoById(acionamentoToDelete.value.id);
         
         // Remove da lista local
@@ -192,12 +220,12 @@ export default defineComponent({
         // Fecha o modal
         closeDeleteModal();
         
-        alert('Acionamento excluído com sucesso!');
-        
       } catch (error) {
         console.error('❌ Erro ao excluir acionamento:', error);
         alert('Erro ao excluir acionamento. Tente novamente.');
       }
+
+      isLoading.value = false;
     };
      
     const logout = () => {
@@ -237,7 +265,8 @@ export default defineComponent({
       isAdicionarOpen,
       menuRef,
       selectAddOption,
-      redirectToHomePage
+      redirectToHomePage,
+      redirectToLogs
     };
   },
 });
@@ -256,7 +285,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -296,7 +325,7 @@ export default defineComponent({
 
             <button
               @click="redirectToLogs"
-              class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+              class="text-black hover:bg-orange-500 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
             >
               Auditoria
             </button>
@@ -457,18 +486,6 @@ export default defineComponent({
               </p>
               <!-- Aqui você pode adicionar paginação depois -->
             </div>
-
-            <div class="flex flex-cols-2">
-
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
-              </svg>
-              
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
-              </svg>
-
-            </div>
           </div>
 
         </div>
@@ -508,6 +525,7 @@ export default defineComponent({
               v-model="editingAcionamento!.tipoacionamento"
               type="text"
               placeholder="Ex: Acionamento Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageAcionamento" class="text-red-500 text-sm mt-1">{{ errorMessageAcionamento }}</p>
@@ -629,6 +647,7 @@ export default defineComponent({
               v-model="newAcionamento!.tipoacionamento"
               type="text"
               placeholder="Ex: Acionamento Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageAcionamento" class="text-red-500 text-sm mt-1">{{ errorMessageAcionamento }}</p>
@@ -658,31 +677,6 @@ export default defineComponent({
 
       </div>
     </div>
-
-        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-600 justify-between flex flex-cols-2 mt-10">
-            <div class="flex items-center">
-              <p class="text-md text-black">
-                Mostrando <span class="font-semibold">{{ acionamentos.length }}</span> Acionamento(s)
-              </p>
-              <!-- Aqui você pode adicionar paginação depois -->
-            </div>
-
-            <div class="flex flex-cols-2">
-
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
-              </svg>
-
-              <h1 class="py-0.5 text-black">
-                Página {{ page }}
-              </h1>
-              
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
-              </svg>
-
-            </div>
-          </div>
         
       </div>
 

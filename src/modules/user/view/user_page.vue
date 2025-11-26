@@ -3,7 +3,7 @@ import { defineComponent, ref, onMounted, computed } from 'vue'
 import { type AccountUser } from '../domain/user';
 import { type EditingUser } from '../domain/user';
 import { type CreatedUser } from '../domain/user';
-import { createUser, getUsers, updateUser } from '../repository/user_repository';
+import { createUser, deleteUserById, getUsers, updateUser } from '../repository/user_repository';
 import { removeAccessTokens } from '../../../services/token';
 import { router } from '../../../router';
 import { useRouter } from "vue-router";
@@ -221,6 +221,48 @@ export default defineComponent({
       }, 400)
     }
 
+    const isAlertDeleteUserModalOpen = ref(false)
+
+    const userToDelete = ref<AccountUser | null>(null);
+
+    function openAlertDeleteUserModal (a: AccountUser) {
+      console.log('🗑️ Abrindo modal de exclusão para:', a);
+      userToDelete.value = a; // ← Guarda o produto
+      isAlertDeleteUserModalOpen.value = true;
+    }
+
+    const closeDeleteModal = () => {
+      isAlertDeleteUserModalOpen.value = false;
+      userToDelete.value = null;
+    };
+
+    const confirmDelete = async () => {
+      if (!userToDelete.value) {
+        console.error('❌ Nenhum Usuario selecionado para exclusão');
+        return;
+      }
+
+      console.log('🗑️ Excluindo produto:', userToDelete.value.id);
+
+      try {
+        await deleteUserById(userToDelete.value.id);
+        
+        // Remove da lista local
+        users.value = users.value.filter((p) => p.id !== userToDelete.value!.id);
+        
+        console.log('✅ Usuario excluído com sucesso');
+        
+        // Fecha o modal
+        closeDeleteModal();
+        
+        alert('Usuario excluído com sucesso!');
+        
+      } catch (error) {
+        console.error('❌ Erro ao excluir Usuario:', error);
+        alert('Erro ao excluir Usuario. Tente novamente.');
+      }
+    };
+
     const logout = () => {
       console.log('ta aqui');
       
@@ -229,6 +271,11 @@ export default defineComponent({
     }
 
     return { 
+      isAlertDeleteUserModalOpen,
+      userToDelete,
+      openAlertDeleteUserModal,
+      closeDeleteModal,
+      confirmDelete,
       hasSixCharacters,
       hasUpperCase,
       hasNumber,
@@ -445,7 +492,7 @@ export default defineComponent({
                     </button>
                     
                     <button
-                      @click="deleteUser(user.id)"
+                      @click="openAlertDeleteUserModal(user)"
                       class="hover:cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-red-700 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
@@ -462,7 +509,7 @@ export default defineComponent({
           <div class="bg-neutral-400/50 px-6 py-4 border-t border-gray-200 dark:border-gray-600 justify-between flex flex-cols-2">
             <div class="flex items-center justify-between">
               <p class="text-md text-black">
-                Mostrando <span class="font-semibold">{{ }}</span> usuário(s)
+                Mostrando <span class="font-semibold">{{ users.length }}</span> usuário(s)
               </p>
               <!-- Aqui você pode adicionar paginação depois -->
             </div>
@@ -480,6 +527,64 @@ export default defineComponent({
             </div>
           </div>
 
+        </div>
+
+        <div
+          v-if="isAlertDeleteUserModalOpen"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
+        >
+          <div class="relative bg-neutral-200 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            
+            <!-- Header do Modal -->
+            <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja excluir a bucha?</h3>
+                  <!-- Mostra qual produto será excluído -->
+                  <p v-if="userToDelete" class="text-md text-gray-600 mt-2">
+                    Usuario: <span class="font-semibold">{{ userToDelete.name }}; Email: {{ userToDelete.email }}</span>
+                  </p>
+                </div>
+                <button
+                  @click="closeDeleteModal"
+                  class="hover:cursor-pointer text-black/90 hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-black">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Conteúdo -->
+            <div class="px-6 py-6">
+              <div class="space-y-5">
+                <h1 class="text-black">Se você prosseguir, o registro do usuário será <span class="text-italic text-red-600 underline">apagado</span> <span class="text-italic text-red-600 underline">permanentemente</span>.</h1>
+              </div>
+            </div>
+
+            <!-- Footer com botões -->
+            <div class="bg-gray-300 px-8 py-6 border-t border-black-700/50 flex rounded-xl justify-end items-center">
+              <div class="flex gap-3">
+                <button
+                  @click="confirmDelete"
+                  class="px-6 py-2.5 hover:cursor-pointer rounded-lg  bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
+                >
+                  Excluir mesmo assim
+                </button>
+                <button
+                  @click="closeDeleteModal"
+                  class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                  Sair
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
 
        <div

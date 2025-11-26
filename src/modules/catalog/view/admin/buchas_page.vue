@@ -73,6 +73,18 @@ export default defineComponent({
 
     };
 
+    const redirectToLogs = async () => {
+
+      const claims = getClaims();
+
+      if (claims?.id_user_group === 1) {
+          await router.push({path: '/admin/logs'})
+        } else {
+          router.push({path: '/'})
+        }
+
+    };
+
      const isAdicionarOpen = ref(false);
 
     const menuRef = ref<HTMLElement | null>(null);
@@ -106,6 +118,8 @@ export default defineComponent({
 
     const addBucha = async (newBucha: Bucha) => {
 
+      isLoading.value = true;
+
       errorMessageBucha.value = '';
 
       isAddBuchaModalOpen.value = true;
@@ -116,7 +130,12 @@ export default defineComponent({
       }
 
       await createBucha(newBucha);
+
+      buchas.value = await fetchBuchas()
+
       isAddBuchaModalOpen.value = false;
+
+      isLoading.value = false;
     };
 
     const buchaId = ref(0)
@@ -142,6 +161,11 @@ export default defineComponent({
       }
 
       if (editingbucha) {
+
+        isEditBuchaModalOpen.value = false 
+
+         isLoading.value = true;
+
         const updated = await updateBucha(editingbucha.id, editingbucha);
         // atualiza na lista
 
@@ -149,7 +173,8 @@ export default defineComponent({
         if (index !== -1) {
           buchas.value[index] = updated;
         }
-        isEditBuchaModalOpen.value = false // fecha modal/edição
+
+        isLoading.value = false;
       }
     };
 
@@ -177,6 +202,9 @@ export default defineComponent({
       console.log('🗑️ Excluindo produto:', buchaToDelete.value.id);
 
       try {
+
+        isLoading.value = true;
+
         await deleteBuchaById(buchaToDelete.value.id);
         
         // Remove da lista local
@@ -193,6 +221,8 @@ export default defineComponent({
         console.error('❌ Erro ao excluir Bucha:', error);
         alert('Erro ao excluir Bucha. Tente novamente.');
       }
+
+      isLoading.value = false;
     };
      
     const logout = () => {
@@ -232,7 +262,8 @@ export default defineComponent({
       isAdicionarOpen,
       menuRef,
       selectAddOption,
-      redirectToHomePage
+      redirectToHomePage,
+      redirectToLogs,
     };
   },
 });
@@ -251,7 +282,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -291,7 +322,7 @@ export default defineComponent({
 
             <button
               @click="redirectToLogs"
-              class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+              class="text-black hover:bg-orange-500 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
             >
               Auditoria
             </button>
@@ -352,6 +383,8 @@ export default defineComponent({
       <!-- título -->
 
     <div class="w-full max-w-screen-2xl mx-auto px-4 mt-10">
+
+        <div class="rounded-2xl overflow-hidden">
   
         <!-- Repita o card ou use v-for -->
 
@@ -451,19 +484,9 @@ export default defineComponent({
               </p>
               <!-- Aqui você pode adicionar paginação depois -->
             </div>
-
-            <div class="flex flex-cols-2">
-
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
-              </svg>
-              
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
-              </svg>
-
-            </div>
           </div>
+
+        </div>
 
 
 
@@ -500,6 +523,7 @@ export default defineComponent({
               v-model="editingbucha!.tipobucha"
               type="text"
               placeholder="Ex: Bucha Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageBucha" class="text-red-500 text-sm mt-1">{{ errorMessageBucha }}</p>
@@ -621,6 +645,7 @@ export default defineComponent({
               v-model="newBucha!.tipobucha"
               type="text"
               placeholder="Ex: Bucha Lateral"
+              maxlength="30"
               class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
             />
             <p v-if="errorMessageBucha" class="text-red-500 text-sm mt-1">{{ errorMessageBucha }}</p>

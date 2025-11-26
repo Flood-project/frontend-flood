@@ -14,6 +14,7 @@ import { removeAccessTokens } from "../../../../services/token";
 import { router } from "../../../../router";
 import { getClaims } from "../../../../services/jwt_decoder";
 import { createFile } from "../../../object_store/repository/object_store_repository";
+import { getImageUrl } from "../../repository/object_store";
 
 
 export default defineComponent({
@@ -62,7 +63,6 @@ export default defineComponent({
     const filterBase = ref("")
     const productsWithComponents = ref<ProductWithComponents[]>([])
 
-
     newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0, ativo: true};
 
     newBucha.value = { id: 0, tipobucha: ""};
@@ -70,6 +70,9 @@ export default defineComponent({
     newBase.value = { id: 0, tipobase: ""};
 
     newAcionamento.value = { id: 0, tipoacionamento: ""};
+
+    const selectedFiles = ref<{[key: number]: File}>({});
+    const selectedFileNames = ref<{[key: number]: string}>({});
 
     const isBuchaFilterWithValue = computed(() => {
       return filterBucha.value !== "" && filterBucha.value !== null && filterBucha.value !== undefined;
@@ -156,27 +159,51 @@ export default defineComponent({
 
     const selectAcionamento = (a: { id: number; tipoacionamento: string }) => {
       selectedAcionamento.value = a;
+      
       if (newProduct.value) {
         newProduct.value.id_acionamento = a.id;
       }
+      
+      // ADICIONE ISTO: Atualiza também o editingProduct
+      if (editingProduct.value) {
+        editingProduct.value.id_acionamento = a.id;
+        editingProduct.value.tipoacionamento = a.tipoacionamento;
+      }
+      
       acionamentoSearchTerm.value = a.tipoacionamento;
       showAcionamentosDropdown.value = false;
     };
 
     const selectBucha = (a: { id: number; tipobucha: string }) => {
       selectedBucha.value = a;
+      
       if (newProduct.value) {
         newProduct.value.id_bucha = a.id;
       }
+      
+      // ADICIONE ISTO
+      if (editingProduct.value) {
+        editingProduct.value.id_bucha = a.id;
+        editingProduct.value.tipobucha = a.tipobucha;
+      }
+      
       buchaSearchTerm.value = a.tipobucha;
       showBuchasDropdown.value = false;
     };
 
     const selectBase = (a: { id: number; tipobase: string }) => {
       selectedBase.value = a;
+      
       if (newProduct.value) {
         newProduct.value.id_base = a.id;
       }
+      
+      // ADICIONE ISTO
+      if (editingProduct.value) {
+        editingProduct.value.id_base = a.id;
+        editingProduct.value.tipobase = a.tipobase;
+      }
+      
       baseSearchTerm.value = a.tipobase;
       showBasesDropdown.value = false;
     };
@@ -393,85 +420,154 @@ export default defineComponent({
       isAddModalOpen.value = true
     }
 
-    
+    const selectedImage = ref<string>('');
+    const selectedProduct = ref<Product | null>(null);    
 
     const isLoadingDetails = ref(false);
 
+    const imageUrls = ref<Record<string, string>>({});
+
     const showProductDetails = async (p: Product) => {
-      selectedProduct.value = p
-      if (p.images) {
-        selectedImage.value = p.images[0]?.url || ""
-        console.log(selectedImage.value);
-      }
-      
-      try {
-        isLoadingDetails.value = true;
+        console.log('🔵 showProductDetails - produto:', p);
+        console.log('🔵 Imagens do produto p:', p.images);
 
-        const response = await fetchById(p.id);
+        selectedProduct.value = p;
 
-        fetchedProduct.value = {
-          ...response,
-          tipoacionamento: acionamentoMap.value[response.id_acionamento] || "Desconhecido",
-          tipobucha: buchaMap.value[response.id_bucha] || "Desconhecido",
-          tipobase: baseMap.value[response.id_base] || "Desconhecido",
-        };
+        // Define a primeira imagem como selecionada
+        if (p.images && p.images.length > 0) {
+          selectedImage.value = p.images[0]?.url || '';
+          console.log('✅ selectedImage inicial definido:', selectedImage.value);
+        } else {
+          selectedImage.value = '';
+          console.log('⚠️ Produto sem imagens');
+        }
+        
+        try {
+          isLoadingDetails.value = true;
 
-        // Delay mínimo para mostrar feedback visual
-        await new Promise(resolve => setTimeout(resolve, 200));
+          const response = await fetchById(p.id);
+          console.log('📦 Response do fetchById:', response);
 
-        isProductDetailsOpen.value = true;
+          fetchedProduct.value = {
+            ...response,
+            tipoacionamento: acionamentoMap.value[response.id_acionamento] || "Desconhecido",
+            tipobucha: buchaMap.value[response.id_bucha] || "Desconhecido",
+            tipobase: baseMap.value[response.id_base] || "Desconhecido",
+          };
 
-      } catch (error) {
-        console.error('❌ Erro ao carregar detalhes:', error);
-        alert('Erro ao carregar os detalhes do produto. Tente novamente.');
-      } finally {
-        isLoadingDetails.value = false;
-      }
-    };
+          console.log('📦 fetchedProduct.value:', fetchedProduct.value);
+
+          // AS IMAGENS JÁ VÊM COM URL! Não precisa processar nada
+          console.log('✅ Imagens já têm URL:', fetchedProduct.value.images);
+
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // Atualiza selectedProduct e selectedImage
+          selectedProduct.value = fetchedProduct.value;
+          
+          if (fetchedProduct.value.images && fetchedProduct.value.images.length > 0) {
+            selectedImage.value = fetchedProduct.value.images[0].url;
+            console.log('🎯 selectedImage atualizado para:', selectedImage.value);
+          }
+
+          console.log('🏁 selectedProduct final:', selectedProduct.value);
+          console.log('🏁 selectedImage final:', selectedImage.value);
+
+          isProductDetailsOpen.value = true;
+
+        } catch (error) {
+          console.error('❌ Erro ao carregar detalhes:', error);
+          alert('Erro ao carregar os detalhes do produto. Tente novamente.');
+        } finally {
+          isLoadingDetails.value = false;
+        }
+      };
 
     // Salvar edição
-    const editProduct = async (editingProduct: Product) => {
-      console.log(editingProduct);
-      if (editingProduct) {
-        const updated = await updateProduct(editingProduct.id, editingProduct);
-        // atualiza na lista
+    const editProduct = async () => {
+      if (!editingProduct.value) return;
 
-        const enriched: DetailedProduct = {
-          ...updated,
-          tipoacionamento: acionamentoMap.value[updated.id_acionamento] || "Desconhecido",
-          tipobucha: buchaMap.value[updated.id_bucha] || "Desconhecido",
-          tipobase: baseMap.value[updated.id_base] || "Desconhecido",
+      try {
+        console.log('📝 Iniciando edição do produto...');
+        console.log('📝 Dados do produto:', editingProduct.value);
+
+        // IMPORTANTE: Enviar os IDs, não as strings!
+        const productData: Product = {
+          id: editingProduct.value.id,
+          codigo: editingProduct.value.codigo,
+          capacidade_estatica: editingProduct.value.capacidade_estatica,
+          capacidade_trabalho: editingProduct.value.capacidade_trabalho,
+          curso: editingProduct.value.curso,
+          altura_bucha: editingProduct.value.altura_bucha,
+          reducao: editingProduct.value.reducao,
+          description: editingProduct.value.description,
+          ativo: editingProduct.value.ativo,
+          id_acionamento: editingProduct.value.id_acionamento, // ← IDs, não strings!
+          id_bucha: editingProduct.value.id_bucha,
+          id_base: editingProduct.value.id_base,
         };
 
-        const index = products.value.findIndex((p) => p.id === enriched.id);
-        if (index !== -1) {
-          products.value[index] = enriched;
+        console.log('📝 Payload que será enviado:', JSON.stringify(productData, null, 2));
+
+        // 1. Atualiza o produto
+        let updated = await updateProduct(editingProduct.value.id, productData);
+        
+        console.log('✅ Produto atualizado!');
+
+        // 2. Faz upload das imagens (se houver)
+        if (Object.keys(selectedFiles.value).length > 0) {
+          console.log('📤 Iniciando upload de imagens...');
+          await uploadAllFiles(editingProduct.value.id);
+          console.log('✅ Upload de imagens concluído!');
+        } else {
+          console.log('📁 Nenhuma imagem para upload');
         }
-        isEditModalOpen.value = false // fecha modal/edição
+
+        // 3. Recarrega a lista
+        await productsWithParams({ page: page.value, limit: limit.value });
+        isEditModalOpen.value = false;
+        
+        alert('Produto editado com sucesso!');
+
+      } catch (error: any) {
+        console.error('❌ Erro completo:', error);
+        console.error('❌ Response data:', error.response?.data);
+        console.error('❌ Response status:', error.response?.status);
+        alert(`Erro ao editar produto: ${error.response?.data || error.message}`);
       }
     };
 
     const addProduct = async (newProduct: Product) => {
-      console.log(acionamentos.value)
+      console.log(acionamentos.value);
       console.log(newProduct, "antes de chamar create product");
+      
       if (newProduct) {
         try {
-        // 1. Cria o produto
-        const createdProduct = await createProduct(newProduct);
-        
-        console.log('✅ Produto criado:', createdProduct);
-        
-        // 2. Se tiver imagem selecionada e o produto foi criado com ID
-        if (selectedImage.value && createdProduct?.id) {
-          console.log('📤 Fazendo upload da imagem...');
-          await createFile(selectedImage.value, createdProduct.id);
-          console.log('✅ Imagem enviada!');
+          // 1. Cria o produto
+          const createdProduct = await createProduct(newProduct);
+          console.log('✅ Produto criado:', createdProduct);
+          
+          // 2. Faz upload das imagens (se houver)
+          if (Object.keys(selectedFiles.value).length > 0) {
+            console.log('📤 Iniciando upload de imagens...');
+            await uploadAllFiles(createdProduct.id);
+            console.log('✅ Upload de imagens concluído!');
+          } else {
+            console.log('📁 Nenhuma imagem para upload');
+          }
+            
+          // 3. Recarrega a lista
+          await productsWithParams({ page: page.value, limit: limit.value });
+          isAddModalOpen.value = false;
+          
+          alert('Produto criado com sucesso!');
+          
+        } catch (error: any) {
+          console.error("❌ Erro ao criar produto:", error);
+          alert(`Erro ao criar produto: ${error.response?.data || error.message}`);
         }
-        } catch {
-          console.error("moio");
-        }
-      };
-    }
+      }
+    };
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
       isLoading.value = true;
@@ -559,9 +655,6 @@ export default defineComponent({
       await productsWithParams({ page: page.value, limit: limit.value });
     };
 
-    const selectedImage = ref(null);
-    const selectedProduct = ref(null)
-
     const redirectToLogs = async () => {
 
       const claims = getClaims();
@@ -581,55 +674,54 @@ export default defineComponent({
       router.push({ path: '/' })
     }
 
-    const handleFileInput = async (event: Event) => {
+    const handleFileInput = (event: Event, inputId?: number) => {
       const target = event.target as HTMLInputElement;
       const file = target.files?.[0];
+
+      console.log(file, inputId)
       
-      if (!file) {
+      if (!file || !inputId) {
         console.log('❌ Nenhum arquivo selecionado');
         return;
       }
       
-      // CORREÇÃO: Pega o ID do editingProduct se estiver editando
-      const currentProductId = editingProduct.value?.id || productId.value;
+      // Armazena o arquivo e o nome para exibição
+      selectedFiles.value[inputId] = file;
+      selectedFileNames.value[inputId] = file.name;
       
-      console.log('📁 Arquivo:', file.name);
-      console.log('📁 productId.value:', productId.value);
-      console.log('📁 editingProduct.value?.id:', editingProduct.value?.id);
-      console.log('📁 ID que será usado:', currentProductId);
+      console.log('📁 Arquivo selecionado:', file.name);
+    };
+
+    const uploadAllFiles = async (productId: number) => {
+      const filesToUpload = Object.values(selectedFiles.value);
       
-      if (!currentProductId || currentProductId === 0) {
-        console.error('❌ Product ID inválido!');
-        alert('Erro: Salve o produto primeiro antes de adicionar imagens.');
+      if (filesToUpload.length === 0) {
+        console.log('📁 Nenhum arquivo para upload');
         return;
       }
       
+      console.log(`📤 Fazendo upload de ${filesToUpload.length} arquivo(s)...`);
+      
       try {
-        console.log('📤 Fazendo upload para produto ID:', currentProductId);
+        for (const file of filesToUpload) {
+          await createFile(file, productId);
+          console.log('✅ Upload concluído:', file.name);
+        }
         
-        await createFile(file, currentProductId);
-        
-        console.log('✅ Upload concluído!');
+        // Limpa os arquivos selecionados
+        selectedFiles.value = {};
+        selectedFileNames.value = {};
         
         // Recarrega a lista
         await productsWithParams({ page: page.value, limit: limit.value });
         
-        alert('Imagem enviada com sucesso!');
+        console.log('✅ Todos os uploads concluídos!');
         
       } catch (error: any) {
         console.error('❌ Erro no upload:', error);
-        alert(`Erro no upload: ${error.response?.data || error.message}`);
+        throw error; // Propaga o erro para ser tratado no editProduct
       }
     };
-
-    const uploadFile = async (selectedImage) => {
-      try {
-        await createFile(selectedImage, productId.value)
-        await productsWithParams({page: page.value,  limit: limit.value})
-      } catch (error) {
-        console.error('Erro no upload:', error)
-      } 
-    }
 
     const paginateAhead = async () => {
       try {
@@ -669,17 +761,200 @@ export default defineComponent({
       }
     }
 
+    const currentImageIndex = ref<{ [key: number]: number }>({});
+
+    // Função para navegar para a próxima imagem
+    const nextImage = (productId: number, totalImages: number) => {
+      if (!currentImageIndex.value[productId]) {
+        currentImageIndex.value[productId] = 0;
+      }
+      currentImageIndex.value[productId] = (currentImageIndex.value[productId] + 1) % totalImages;
+    };
+
+    // Função para navegar para a imagem anterior
+    const previousImage = (productId: number, totalImages: number) => {
+      if (!currentImageIndex.value[productId]) {
+        currentImageIndex.value[productId] = 0;
+      }
+      currentImageIndex.value[productId] = 
+        currentImageIndex.value[productId] === 0 
+          ? totalImages - 1 
+          : currentImageIndex.value[productId] - 1;
+    };
+
+    // Função para ir direto para uma imagem específica (bolinhas indicadoras)
+    const goToImage = (productId: number, index: number) => {
+      currentImageIndex.value[productId] = index;
+    };
+
+    const isImageZoomApplied = ref(false);
+
+    // Computed para pegar as imagens do produto nos detalhes
+    const detailsImages = computed(() => {
+      console.log('🔍 detailsImages sendo chamado');
+      console.log('🔍 selectedProduct.value:', selectedProduct.value);
+      console.log('🔍 selectedProduct.value?.images:', selectedProduct.value?.images);
+      
+      if (!selectedProduct.value?.images) {
+        console.log('⚠️ selectedProduct sem imagens');
+        return [];
+      }
+      
+      const imgs = selectedProduct.value.images;
+      console.log('✅ detailsImages retornando:', imgs);
+      console.log('✅ Primeira imagem detalhada:', imgs[0]);
+      
+      return imgs;
+    });
+
+    // Índice da imagem atual NO ZOOM
+    const detailsImageIndex = ref(0);
+
+    // Abre o zoom
+    const applySelectedImageZoom = () => {
+      isImageZoomApplied.value = true;
+      document.body.style.overflow = 'hidden';
+    };
+
+    // Fecha o zoom
+    const closeZoom = () => {
+      isImageZoomApplied.value = false;
+      document.body.style.overflow = '';
+    };
+
+    // Navega para a imagem anterior NO ZOOM
+    const previousZoomImage = () => {
+      const images = detailsImages.value;
+      if (images.length <= 1) return;
+      
+      detailsImageIndex.value--; // ← ADICIONE ESTA LINHA
+      if (detailsImageIndex.value < 0) {
+        detailsImageIndex.value = images.length - 1;
+      }
+      selectedImage.value = images[detailsImageIndex.value].url;
+    };
+
+    // Navega para a próxima imagem NO ZOOM
+    const nextZoomImage = () => {
+      const images = detailsImages.value;
+      if (images.length <= 1) return;
+      
+      detailsImageIndex.value++; // ← ADICIONE ESTA LINHA
+      if (detailsImageIndex.value >= images.length) {
+        detailsImageIndex.value = 0;
+      }
+      selectedImage.value = images[detailsImageIndex.value].url;
+    };
+
+    // Atalhos de teclado
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (!isImageZoomApplied.value) return;
+      
+      if (e.key === 'Escape') {
+        closeZoom();
+      }
+      if (e.key === 'ArrowLeft') {
+        previousZoomImage();
+      }
+      if (e.key === 'ArrowRight') {
+        nextZoomImage();
+      }
+    };
+    
+
     onMounted(async () => {
-      products.value = await productsWithParams({page: page.value,  limit: limit.value})
+      products.value = await productsWithParams({page: page.value, limit: limit.value});
       acionamentos.value = await fetchAcionamentos();
       buchas.value = await fetchBuchas();
       bases.value = await fetchBases();
+      search.value = "";
+      
+      // Event listeners
       document.addEventListener("click", handleClickOutside);
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      isLoading.value = false
+      document.addEventListener('keydown', handleKeydown); // ← ADICIONE
+      
+      // Carrega URLs das imagens
+      for (const product of produtosCompletos.value) {
+        if (product.images?.[0]?.storage_key) {
+          const url = await getImageUrl(product.images[0].storage_key);
+          imageUrls.value[product.images[0].storage_key] = url;
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      isLoading.value = false;
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener('keydown', handleKeydown);
+      document.removeEventListener('click', handleClickOutside);
+      document.body.style.overflow = '';
+    });
+
+    const selectDetailImage = (url: string) => {
+      console.log('🖼️ Selecionando imagem:', url);
+      selectedImage.value = url;
+      console.log('✅ selectedImage atualizado:', selectedImage.value);
+       detailsImageIndex.value = detailsImages.value.findIndex(img => img.url === imageUrl);
+    };
+
+    const previousMainImage = () => {
+      console.log('previousMainImage chamado');
+      console.log('detailsImages.value.length:', detailsImages.value.length);
+      console.log('detailsImageIndex.value antes:', detailsImageIndex.value);
+      
+      if (detailsImages.value.length > 1) {
+        detailsImageIndex.value--;
+        if (detailsImageIndex.value < 0) {
+          detailsImageIndex.value = detailsImages.value.length - 1;
+        }
+        console.log('detailsImageIndex.value depois:', detailsImageIndex.value);
+        console.log('Nova URL:', detailsImages.value[detailsImageIndex.value].url);
+        selectedImage.value = detailsImages.value[detailsImageIndex.value].url;
+      }
+    };
+
+    const nextMainImage = () => {
+      console.log('nextMainImage chamado');
+      console.log('detailsImages.value.length:', detailsImages.value.length);
+      console.log('detailsImageIndex.value antes:', detailsImageIndex.value);
+      
+      if (detailsImages.value.length > 1) {
+        detailsImageIndex.value++;
+        if (detailsImageIndex.value >= detailsImages.value.length) {
+          detailsImageIndex.value = 0;
+        }
+        console.log('detailsImageIndex.value depois:', detailsImageIndex.value);
+        console.log('Nova URL:', detailsImages.value[detailsImageIndex.value].url);
+        selectedImage.value = detailsImages.value[detailsImageIndex.value].url;
+      }
+    };
+
+    const currentImageNumber = computed(() => {
+      console.log('detailsImageIndex.value:', detailsImageIndex.value);
+       return detailsImageIndex.value + 1;
     });
 
     return {
+      selectedFiles,
+      selectedFileNames, // ← Use este no template ao invés de selectedFiles
+      uploadAllFiles,
+      currentImageNumber,
+      previousMainImage,
+      nextMainImage,
+      selectDetailImage,
+      isImageZoomApplied,
+      detailsImages,
+      detailsImageIndex,
+      applySelectedImageZoom,
+      closeZoom,
+      previousZoomImage,
+      nextZoomImage,
+      handleKeydown,
+      currentImageIndex,
+      nextImage,
+      previousImage,
+      goToImage,
       redirectToBuchas,
       redirectToBases,
       redirectToAcionamentos,
@@ -759,6 +1034,7 @@ export default defineComponent({
       selectedProduct,
       paginateAhead,
       paginateReturn,
+      imageUrls
     };
   },
 });
@@ -777,7 +1053,7 @@ export default defineComponent({
 
       <div
         v-if="isLoading"
-        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-50"
+        class="fixed inset-0 flex flex-col items-center justify-center bg-emerald-900 text-white z-70"
       >
         <svg
           class="animate-spin h-12 w-12 text-white mb-4"
@@ -817,7 +1093,7 @@ export default defineComponent({
 
             <button
               @click="redirectToLogs"
-              class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+              class="text-black hover:bg-orange-500 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
             >
               Auditoria
             </button>
@@ -1013,16 +1289,57 @@ export default defineComponent({
             <div v-for="product in products" :key="product.id"
               class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
             >
-               <div v-if="product.images && product.images.length > 0">
-                <img 
-                  :src="product.images[0].url" 
-                  :alt="product.images[0].file_name"
-                >
-                <!-- class for images if too big: class="w-full h-100 object-cover" -->
-              </div>
-              <div v-else class="w-full h-48 bg-gray-200 rounded-t-xl flex items-center justify-center">
-                <span class="text-gray-500">Sem imagem</span>
-              </div>
+               <div v-if="product.images && product.images.length > 0" class="relative group">
+                  <!-- Imagem atual -->
+                  <img 
+                    :src="product.images[currentImageIndex[product.id] || 0].url" 
+                    :alt="product.images[currentImageIndex[product.id] || 0].file_name"
+                    class="w-full h-82 object-vover rounded-t-xl"
+                  >
+                  
+                  <!-- Botões de navegação (aparecem no hover) -->
+                  <div v-if="product.images.length > 1" class="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <!-- Botão anterior -->
+                    <button
+                      @click.stop="previousImage(product.id, product.images.length)"
+                      class="hover:cursor-pointer bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all hover:scale-110"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
+                    
+                    <!-- Botão próximo -->
+                    <button
+                      @click.stop="nextImage(product.id, product.images.length)"
+                      class="hover:cursor-pointer bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all hover:scale-110"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <!-- Indicadores de imagem (bolinhas) -->
+                  <div v-if="product.images.length > 1" class="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+                    <button
+                      v-for="(image, index) in product.images"
+                      :key="index"
+                      @click.stop="goToImage(product.id, index)"
+                      class="w-2 h-2 rounded-full transition-all hover:scale-125"
+                      :class="(currentImageIndex[product.id] || 0) === index ? 'bg-white w-6' : 'bg-white/50'"
+                    ></button>
+                  </div>
+                  
+                  <!-- Contador de imagens -->
+                  <div v-if="product.images.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                    {{ (currentImageIndex[product.id] || 0) + 1 }} / {{ product.images.length }}
+                  </div>
+                </div>
+                
+                <div v-else class="w-full h-82 bg-gray-200 rounded-t-xl flex items-center justify-center">
+                  <span class="text-gray-500">Sem imagem</span>
+                </div>
               <!-- Foto -->
               <!-- <img src="../../../../../imgstorage/testes/ral.jpg" alt="" class="object-cover rounded-t-xl h-90 w-full"> -->
 
@@ -1106,27 +1423,6 @@ export default defineComponent({
 
     </div>
     <!-- paginação -->
-    <div class="paginationBack">
-      <div class="pagination">
-        <button
-          class="btnPagination bg-emerald-800"
-          @click="paginateReturn"
-        > 
-          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12l4-4m-4 4 4 4"/>
-          </svg>
-        </button>
-        <button 
-          class="btnPagination bg-emerald-800"
-          @click="paginateAhead"
-        >
-          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
-          </svg>
-        </button>
-      </div>
-      <p class="mt-3">Página {{ page }}</p>
-    </div>
     
 
         <div
@@ -1511,14 +1807,6 @@ export default defineComponent({
                 ></textarea>
               </div>
 
-               <div>
-                <input 
-                  type="file" 
-                  class="w-50% px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all mb-3"
-                  @change="(event) => handleFileInput(event)"
-                >
-              </div>
-
               <div class="">
               <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
@@ -1528,60 +1816,92 @@ export default defineComponent({
                 </h4>
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-black mb-2">
-                      Imagens <span class="text-red-400">*</span>
-                    </label>
-                    
-                    <!-- Input invisível -->
-                    <input 
-                      type="file" 
-                      id="file-upload"
-                      class="hidden"
-                      @change="handleFileUpload"
-                      accept="image/*"
-                      multiple
-                    />
-                    
-                    <!-- Label customizado que funciona como botão -->
-                    <label 
-                      for="file-upload"
-                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-between"
-                    >
-                      <span class="text-black" v-if="!selectedFileName">
-                        Clique para escolher imagens...
-                      </span>
-                      <span v-else class="text-white">
-                        {{ selectedFileName }}
-                      </span>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
-                    </label>
-                  </div>
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-black mb-2">
+                    Imagens <span class="text-red-400">*</span>
+                  </label>
+                  
+                  <div class="grid grid-cols-3 gap-4">
+                     <div>
+                        <input 
+                          type="file" 
+                          id="file-input-1"
+                          class="hidden"
+                          @change="(event) => handleFileInput(event, 1)"
+                          accept="image/*"
+                          multiple
+                        />
+                        <label 
+                          for="file-input-1"
+                          class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
+                        >
+                          <span v-if="!selectedFileNames[1]">Escolher arquivo</span>
+                          <span v-else class="truncate">{{ selectedFileNames[1] }}</span>
+                        </label>
+                      </div>
 
-                  <div class="flex flex-col justify-between">
-                    <div class="flex justify-end">
-                      <div class="p-2 mr-auto">
-                        <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
-                        <div class="flex items-center gap-3">
-                          <span class="text-sm font-medium text-black">
-                            {{ editingProduct?.ativo ? 'Ativo' : 'Inativo' }}
-                          </span>
-                          <label class="relative inline-flex items-center cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              :checked="editingProduct?.ativo"
-                              @change="editingProduct.ativo = $event.target.checked"
-                              class="sr-only peer"
-                            >
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                          </label>
-                        </div>
+                      <!-- Input 2 -->
+                      <div>
+                        <input 
+                          type="file" 
+                          id="file-input-2"
+                          class="hidden"
+                          @change="(event) => handleFileInput(event, 2)"
+                          accept="image/*"
+                          multiple
+                        />
+                        <label 
+                          for="file-input-2"
+                          class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
+                        >
+                          <span v-if="!selectedFileNames[2]">Escolher arquivos</span>
+                          <span v-else class="truncate">{{ selectedFileNames[2] }}</span>
+                        </label>
+                      </div>
+
+                      <!-- Input 3 -->
+                      <div>
+                        <input 
+                          type="file" 
+                          id="file-input-3"
+                          class="hidden"
+                          @change="(event) => handleFileInput(event, 3)"
+                          accept="image/*"
+                          multiple
+                        />
+                        <label 
+                          for="file-input-3"
+                          class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
+                        >
+                          <span v-if="!selectedFileNames[3]">Escolher arquivos</span>
+                          <span v-else class="truncate">{{ selectedFileNames[3] }}</span>
+                        </label>
+                      </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-col justify-between">
+                  <div class="flex justify-end">
+                    <div class="p-2">
+                      <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-medium text-black">
+                          {{ editingProduct?.ativo ? 'Ativo' : 'Inativo' }}
+                        </span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            :checked="editingProduct?.ativo"
+                            @change="editingProduct.ativo = $event.target.checked"
+                            class="sr-only peer"
+                          >
+                          <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
               </div>
 
             </div>
@@ -1610,56 +1930,92 @@ export default defineComponent({
           </div>
         </div>
 
-        <div
-          v-if="isProductDetailsOpen"
-          class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60"
-        >
-          <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl h-[70%] max-h-[%70] p-20">
+      <div
+        v-if="isProductDetailsOpen && selectedProduct"
+        class="fixed inset-0 flex items-center justify-center backdrop-blur-lg bg-black/60 z-40"
+      >
+        <div class="relative bg-gray-300 p-6 rounded-lg shadow-lg w-[95%] max-w-6xl max-h-[95vh] overflow-y-auto">
 
-            <button
-              @click="isProductDetailsOpen = false"
-              class="absolute top-4 right-4 text-gray-700 transition-colors p-3 hover:cursor-pointer hover:bg-gray-400 rounded-lg"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                class="w-7 h-7"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <button
+            @click="isProductDetailsOpen = false"
+            class="absolute top-4 right-4 text-gray-700 p-3 hover:cursor-pointer hover:bg-gray-400 rounded-lg z-10 group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-7 h-7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
 
-            <div class="grid grid-cols-2 gap-4">
-        
-            <!-- Coluna da esquerda: imagens -->
-            <div class="flex flex-col h-[500px] w-full gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+
+            <!-- Coluna: imagens -->
+            <div class="flex flex-col h-[600px] w-full gap-4">
               
               <!-- Imagem principal -->
-               <div class="flex-1 flex justify-start items-start rounded-lg p-2 min-h-0" >
+              <!-- Imagem principal -->
+              <div class="flex-1 flex justify-center items-center rounded-lg min-h-[500px] relative group">
                 <img
-                   :src="selectedImage || selectedImage.images[0]?.url"
+                  v-if="selectedImage"
+                  :src="selectedImage"
                   alt="Imagem principal"
-                  class="h-full max-h-full w-auto object-fill rounded transition-all duration-300"
+                  class="max-h-[500px] max-w-full w-auto h-auto object-contain rounded transition-all duration-300 cursor-zoom-in"
+                  @click="applySelectedImageZoom"
                 />
+                <div v-else class="w-full h-full flex items-center justify-center text-gray-500">
+                  <div class="text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 mx-auto mb-2 text-gray-400">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                    </svg>
+                    <p class="text-lg">Sem imagem</p>
+                  </div>
+                </div>
+
+                <!-- Setas aparecem por cima da imagem no hover -->
+                <button
+                  v-if="detailsImages.length > 1 && selectedImage"
+                  @click.stop="previousMainImage"
+                  class="hover:cursor-pointer absolute left-6 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+
+                <button
+                  v-if="detailsImages.length > 1 && selectedImage"
+                  @click.stop="nextMainImage"
+                  class="hover:cursor-pointer absolute right-6 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
               </div>
 
               <!-- Miniaturas -->
-               <div class="h-24 flex justify-start items-center gap-2">
-                <img
-                   v-for="(img, index) in selectedProduct.images"
-                  :key="img.id || index"
-                  :src="img.url"
-                  alt="Miniatura"
-                  class="h-20 w-auto object-contain rounded cursor-pointer transition-all border-2"
-                  :class="selectedImage === img.url ? 'border-emerald-700' : 'border-transparent'"
-                  @click="selectedImage = img.url"
-                />
+              <div class="h-24 flex justify-center items-center">
+                <div v-if="detailsImages.length > 0" class="flex gap-2 overflow-x-auto pb-2 max-w-full">
+                  <div
+                    v-for="(img, index) in detailsImages"
+                    :key="img.id || index"
+                    class="flex-shrink-0"
+                  >
+                    <img
+                      :src="img.url"
+                      :alt="img.file_name"
+                      class="h-20 w-20 object-cover rounded cursor-pointer transition-all border-2"
+                      :class="selectedImage === img.url ? 'border-emerald-700 ring-4 ring-emerald-500' : 'border-gray-300'"
+                      @click="selectDetailImage(img.url)"
+                    />
+                  </div>
+                </div>
+                <div v-else class="text-black p-4 rounded">
+                  Nenhuma miniatura disponível
+                </div>
               </div>
-              
             </div>
 
-              
-              <!-- Coluna do Formulário -->
-              <div class="flex flex-col justify-start">
+            <!-- Coluna: info -->
+            <div class="flex flex-col justify-between h-full">
                 <!-- Campos -->
                 <div class="space-y-4">
                   
@@ -1696,14 +2052,47 @@ export default defineComponent({
                 </div>
 
             </div>
-
-            </div>
-
-            </div>
-
-            <!-- -->
-
           </div>
+        </div>
+      </div>
+
+      <!-- Zoom (mantenha como está) -->
+      <Teleport to="body">
+        <Transition name="fade">
+          <div
+            v-if="isImageZoomApplied"
+            class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
+          >
+            <div class="relative w-full h-full flex items-center justify-center">
+              <button @click="closeZoom" class="hover:cursor-pointer absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <img :src="selectedImage" class="max-w-full max-h-full object-contain" @click.stop />
+
+              <button v-if="detailsImages.length > 1" @click.stop="previousZoomImage" class="hover:cursor-pointer absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+
+              <button v-if="detailsImages.length > 1" @click.stop="nextZoomImage" class="hover:cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+
+              <div v-if="detailsImages.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full">
+                {{ currentImageNumber }} / {{ detailsImages.length }}
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+
 
 
         <div
@@ -2026,14 +2415,6 @@ export default defineComponent({
                 ></textarea>
               </div>
 
-               <div>
-                <input 
-                  type="file" 
-                  class="w-50% px-4 py-2.5 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all mb-3"
-                  @change="(event) => handleFileInput(event)"
-                >
-              </div>
-
               <div class="">
               <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
@@ -2043,61 +2424,63 @@ export default defineComponent({
                 </h4>
 
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-black mb-2">
-                      Imagens <span class="text-red-400">*</span>
-                    </label>
-                    
-                    <!-- Input invisível -->
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-black mb-2">
+                    Imagens <span class="text-red-400">*</span>
+                  </label>
+                  
+                  <div class="grid grid-cols-3 gap-4">
                     <input 
                       type="file" 
-                      id="file-upload"
-                      class="hidden"
-                      @change="handleFileUpload"
+                      id="file-input-1"
+                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
+                      @change="(event) => handleFileInput(event, 1)"
                       accept="image/*"
                       multiple
                     />
-                    
-                    <!-- Label customizado que funciona como botão -->
-                    <label 
-                      for="file-upload"
-                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-between"
-                    >
-                      <span class="text-black" v-if="!selectedFileName">
-                        Clique para escolher imagens...
-                      </span>
-                      <span v-else class="text-white">
-                        {{ selectedFileName }}
-                      </span>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
-                    </label>
+
+                    <input 
+                      type="file" 
+                      id="file-input-2"
+                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
+                      @change="(event) => handleFileInput(event, 2)"
+                      accept="image/*"
+                      multiple
+                    />
+
+                    <input 
+                      type="file" 
+                      id="file-input-3"
+                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
+                      @change="(event) => handleFileInput(event, 3)"
+                      accept="image/*"
+                      multiple
+                    />
                   </div>
+                </div>
 
-                  <div class="flex flex-col justify-between">
-                    <div class="flex justify-end">
-                      <div class="p-2 mr-auto">
-                        <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
-                        <div class="flex items-center gap-3">
-                          <span class="text-sm font-medium text-black">
-                            {{ newProduct?.ativo ? 'Ativo' : 'Inativo' }}
-                          </span>
-                          <label class="relative inline-flex items-center cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              :checked="newProduct?.ativo"
-                              @change="newProduct.ativo = $event.target.checked"
-
-                              class="sr-only peer"
-                            >
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                          </label>
-                        </div>
+                <div class="flex flex-col justify-between">
+                  <div class="flex justify-end">
+                    <div class="p-2">
+                      <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-medium text-black">
+                          {{ newProduct?.ativo ? 'Ativo' : 'Inativo' }}
+                        </span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            :checked="newProduct?.ativo"
+                            @change="newProduct.ativo = $event.target.checked"
+                            class="sr-only peer"
+                          >
+                          <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
               </div>
 
             </div>
@@ -2178,7 +2561,7 @@ export default defineComponent({
             </button>
             <button
               @click="addBucha(newBucha!)"
-              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-800 hover:bg-emerald-600 text-white font-medium transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -2241,7 +2624,7 @@ export default defineComponent({
             </button>
             <button
               @click="addBase(newBase!)"
-              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-800 hover:bg-emerald-600 text-white font-medium transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -2306,7 +2689,7 @@ export default defineComponent({
             </button>
             <button
               @click="addAcionamento(newAcionamento!)"
-              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+              class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-800 hover:bg-emerald-600 text-white font-medium transition-colors flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -2324,7 +2707,7 @@ export default defineComponent({
 
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-600 justify-between flex flex-cols-2 mt-10">
             <div class="flex items-center">
-              <p class="text-md text-black">
+              <p class="text-md text-white">
                 Mostrando <span class="font-semibold">{{ products.length }}</span> Produto(s)
               </p>
               <!-- Aqui você pode adicionar paginação depois -->
@@ -2332,17 +2715,27 @@ export default defineComponent({
 
             <div class="flex flex-cols-2">
 
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14 8-4 4 4 4"/>
-              </svg>
-
-              <h1 class="py-0.5 text-black">
-                Página {{ page }}
-              </h1>
-              
-              <svg class="hover:cursor-pointer w-8 h-8 text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 16 4-4-4-4"/>
-              </svg>
+              <div class="paginationBack">
+                <div class="pagination">
+                  <button
+                    class="btnPagination bg-emerald-800"
+                    @click="paginateReturn"
+                  > 
+                    <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12l4-4m-4 4 4 4"/>
+                    </svg>
+                  </button>
+                  <p class="">Página {{ page }}</p>
+                  <button 
+                    class="btnPagination bg-emerald-800"
+                    @click="paginateAhead"
+                  >
+                    <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
             </div>
           </div>
