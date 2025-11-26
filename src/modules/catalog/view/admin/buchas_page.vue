@@ -1,9 +1,9 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, computed, onUnmounted, watch } from "vue";
 import type { Product, DetailedProduct } from "../../domain/product"; 
-import type { Bucha } from "../../domain/Bucha"; 
+import type { Bucha } from "../../domain/bucha"; 
 import { useRouter } from "vue-router";
-import { fetchBuchas, fetchBuchaById, createBucha, deleteBuchaById, updateBucha } from "../../repository/Bucha_repository"
+import { fetchBuchas, fetchBuchaById, createBucha, deleteBuchaById, updateBucha } from "../../repository/bucha_repository"
 import type { ProductWithComponents } from "../../domain/productWithComponents";
 import { removeAccessTokens } from "../../../../services/token";
 import { router } from "../../../../router";
