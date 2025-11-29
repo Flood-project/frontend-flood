@@ -69,6 +69,7 @@ interface FilterParams {
   tipo_bucha?: string
   tipoacionamento?: string
   tipobase?: string,
+  ativo?: boolean,
   page?: number, 
   limit?: number, 
   search?: Record<string, any>,
@@ -77,21 +78,28 @@ interface FilterParams {
 }
 
 export const filterWithParams = async (params: FilterParams) => {
-  const response = await instance.get(`products/params`, {
-    params: {
-      [`eq[tipo_bucha]`]: params.tipo_bucha,
-      [`eq[tipoacionamento]`]: params.tipoacionamento,
-      [`eq[tipobase]`]: params.tipobase,
-      page: params.page ?? 1,
-      limit: params.limit ?? 10,
-    },
-    
-    
-  })
-  console.log(params);
-  console.log(response);
+  const requestParams: any = {
+    page: params.page ?? 1,
+    limit: params.limit ?? 10,
+  };
+  if (params.ativo !== undefined && params.ativo !== null) {
+    requestParams[`eq[ativo]`] = Boolean(params.ativo);
+  }
+
+  if (params.tipo_bucha) requestParams[`eq[tipobucha]`] = params.tipo_bucha;
+  if (params.tipoacionamento) requestParams[`eq[tipoacionamento]`] = params.tipoacionamento;
+  if (params.tipobase) requestParams[`eq[tipobase]`] = params.tipobase;
   
-  return response.data // <-- garante que retorna o objeto completo
+  if (params.ativo !== undefined && params.ativo !== null) {
+    requestParams[`eq[ativo]`] = params.ativo;
+  }
+
+  console.log("sending request params:", requestParams);
+  console.log("ativo type:", typeof requestParams[`eq[ativo]`]);
+
+  const response = await instance.get(`products/params`, { params: requestParams });
+  
+  return response.data;
 }
 
 

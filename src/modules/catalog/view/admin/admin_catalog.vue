@@ -62,6 +62,7 @@ export default defineComponent({
     const filterAcionamento = ref("")
     const filterBase = ref("")
     const productsWithComponents = ref<ProductWithComponents[]>([])
+    const isActive = ref("")
 
     newProduct.value = { id: 0,codigo: "", description: "", capacidade_estatica: 0, capacidade_trabalho: 0, reducao: "", altura_bucha: 0, curso: 0, id_bucha: 0, id_acionamento: 0, id_base: 0, ativo: true};
 
@@ -87,7 +88,7 @@ export default defineComponent({
     });
 
     const hasAnyFilter = computed(() => {
-      return !!(filterBucha.value || filterAcionamento.value || filterBase.value);
+      return !!(filterBucha.value || filterAcionamento.value || filterBase.value || isActive.value == true || isActive.value == false || isActive.value == undefined);
     });
 
     const acionamentoMap = computed<Record<number, string>>(() => {
@@ -609,10 +610,13 @@ export default defineComponent({
           tipobase: filterBase.value
         });
 
+        const ativo = isActive.value === null ? undefined : isActive.value
+
             const response = await filterWithParams({
               tipo_bucha: filterBucha.value || undefined, // Não enviar string vazia
               tipoacionamento: filterAcionamento.value || undefined,
               tipobase: filterBase.value || undefined,
+              ativo: ativo,
               page: page.value, // Usar page.value ao invés de 1 fixo
               limit: limit.value
             });
@@ -730,6 +734,7 @@ export default defineComponent({
           tipo_bucha: filterBucha.value || undefined,
           tipoacionamento: filterAcionamento.value || undefined,
           tipobase: filterBase.value || undefined,
+          ativo: isActive.value || undefined,
           page: page.value + 1,
         });
         
@@ -749,6 +754,7 @@ export default defineComponent({
           tipo_bucha: filterBucha.value || undefined,
           tipoacionamento: filterAcionamento.value || undefined,
           tipobase: filterBase.value || undefined,
+          ativo: isActive.value || undefined,
           page: page.value - 1
         });
         
@@ -1034,7 +1040,8 @@ export default defineComponent({
       selectedProduct,
       paginateAhead,
       paginateReturn,
-      imageUrls
+      imageUrls,
+      isActive
     };
   },
 });
@@ -1195,6 +1202,21 @@ export default defineComponent({
                 <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
                   {{ base.tipobase }}
                 </option>
+              </select>
+            </div>
+
+            <!-- Filtro Ativo -->
+            <div>
+              <label class="block text-sm font-medium text-black mb-2">Status</label>
+              <select
+                v-model="isActive"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 
+                      hover:cursor-pointer hover:bg-gray-300 transition-colors"
+              >
+                <option disabled value="">Selecione</option>
+                <option :value="null">Todos</option>
+                <option :value="true">Ativos</option>
+                <option :value="false">Inativos</option>
               </select>
             </div>
 
