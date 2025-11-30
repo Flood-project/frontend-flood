@@ -176,16 +176,7 @@ export default defineComponent({
 
               <div>
                 <div class="mb-1 flex items-center justify-between">
-                  <label for="password" class="block text-lg font-medium text-black"
-                    >Senha</label
-                  >
-                  <button
-                    type="button"
-                    @click="togglePassword"
-                    class="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline dark:text-emerald-700"
-                  >
-                    {{ showPassword ? "ocultar senha" : "mostrar senha" }}
-                  </button>
+                  <label for="password" class="block text-lg font-medium text-black">Senha</label>
                 </div>
                 <div class="relative">
                   <input
@@ -196,22 +187,38 @@ export default defineComponent({
                     minlength="6"
                     autocomplete="current-password"
                     placeholder="••••••••"
-                    class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
+                    class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-3 py-2 pr-10 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                   />
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-emerald-700"
+                  <button
+                    type="button"
+                    @click="togglePassword"
+                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-800 hover:text-black transition-colors hover:cursor-pointer"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
+                    <!-- Ícone de olho aberto (quando showPassword = true) -->
+                    <svg 
+                      v-if="showPassword"
+                      class="w-5 h-5" 
+                      aria-hidden="true" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      fill="none" 
                       viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="h-4 w-4"
                     >
-                      <path
-                        d="M12 2a10 10 0 0 0-7.07 17.07A10 10 0 1 0 12 2Z"
-                      />
+                      <path stroke="currentColor" stroke-width="2" d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6Z"/>
+                      <path stroke="currentColor" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                     </svg>
-                  </div>
+                    
+                    <!-- Ícone de olho cortado (quando showPassword = false) -->
+                    <svg 
+                      v-else
+                      class="w-5 h-5" 
+                      aria-hidden="true" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      fill="none" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.933 13.909A4.357 4.357 0 0 1 3 12c0-1 4-6 9-6m7.6 3.8A5.068 5.068 0 0 1 21 12c0 1-3 6-9 6-.314 0-.62-.014-.918-.04M5 19 19 5m-4 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                    </svg>
+                  </button>
                 </div>
                 <p v-if="passwordError" class="mt-1 text-xs text-red-600">
                   {{ passwordError }}

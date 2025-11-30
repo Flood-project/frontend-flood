@@ -4,7 +4,8 @@ export interface AccountUser{
     email: string
     passwordHash: string
     id_user_group: number
-    group_name: string;
+    group_name: string
+    active: boolean
 }
 
 
@@ -12,7 +13,8 @@ export interface EditingUser {
     id: number
     name: string
     email: string
-    id_user_group: number;
+    id_user_group: number
+    active: boolean
 }
 
 export interface CreatedUser {
@@ -20,4 +22,5 @@ export interface CreatedUser {
     name: string
     email: string
     id_user_group: number
+    active: boolean
 }
