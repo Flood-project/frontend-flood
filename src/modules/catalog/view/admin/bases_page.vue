@@ -37,6 +37,25 @@ export default defineComponent({
     
     const isAddBaseModalOpen = ref (false);
 
+    const toast = ref({
+      show: false,
+      message: '',
+      type: 'success' // 'success', 'error', 'warning', 'info'
+    });
+
+    const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+      toast.value = {
+        show: true,
+        message,
+        type
+      };
+
+      // Auto-hide após 3 segundos
+      setTimeout(() => {
+        toast.value.show = false;
+      }, 3000);
+    };
+
     const redirectToBuchas = async () => {
 
       const claims = getClaims();
@@ -90,7 +109,16 @@ export default defineComponent({
     const menuRef = ref<HTMLElement | null>(null);
 
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
+
+      const target = event.target as Node;
+  
+      console.log('=== CLICK OUTSIDE DISPARADO ===');
+      console.log('menuRef.value:', menuRef.value);
+      console.log('isAdicionarOpen antes:', isAdicionarOpen.value);
+      console.log('contains:', menuRef.value?.contains(target));
+      
+      if (menuRef.value && !menuRef.value.contains(target)) {
+        console.log('FECHANDO MENU!');
         isAdicionarOpen.value = false;
       }
     }
@@ -118,24 +146,30 @@ export default defineComponent({
 
     const addBase = async (newBase: Base) => {
 
-       isLoading.value = true;
+      if (newBase) {
+        try {
+          errorMessageBase.value = '';
 
-      errorMessageBase.value = '';
+          isAddBaseModalOpen.value = true;
+          
+          if (!newBase.tipobase || newBase.tipobase.trim() === '') {
+            errorMessageBase.value = 'O tipo do Base é obrigatório.';
+            return;
+          }
 
-      isAddBaseModalOpen.value = true;
-      
-      if (!newBase.tipobase || newBase.tipobase.trim() === '') {
-        errorMessageBase.value = 'O tipo do Base é obrigatório.';
-        return;
+          await createBase(newBase);
+
+          bases.value = await fetchBases();
+
+          isAddBaseModalOpen.value = false;
+
+          showToast('Base criada com sucesso!', 'success');
+
+        } catch (error: any) {
+          showToast('Erro ao criar base. Tente novamente!', 'error');
+
+        }
       }
-
-      await createBase(newBase);
-
-      bases.value = await fetchBases();
-
-      isAddBaseModalOpen.value = false;
-
-       isLoading.value = false;
     };
 
     const baseId = ref(0)
@@ -156,24 +190,28 @@ export default defineComponent({
         console.log(editingBase);
 
       if (!editingBase.tipobase || editingBase.tipobase.trim() === '') {
-        errorMessageBase.value = 'O tipo do Base é obrigatório.';
+        errorMessageBase.value = 'O tipo de base é obrigatório.';
         return;
       }
 
       if (editingBase) {
 
-         isLoading.value = true;
+        try {
 
-        const updated = await updateBase(editingBase.id, editingBase);
-        // atualiza na lista
+          const updated = await updateBase(editingBase.id, editingBase);
+          // atualiza na lista
 
-        const index = bases.value.findIndex(a => a.id === editingBase.id);
-        if (index !== -1) {
-          bases.value[index] = updated;
+          const index = bases.value.findIndex(a => a.id === editingBase.id);
+          if (index !== -1) {
+            bases.value[index] = updated;
+          }
+          isEditBaseModalOpen.value = false
+
+          showToast('Base editada com sucesso!', 'success');
+
+        } catch (error: any) {
+          showToast('Erro ao editar base. Tente novamente!', 'error');
         }
-        isEditBaseModalOpen.value = false
-        
-         isLoading.value = false;// fecha modal/edição
       }
     };
 
@@ -202,8 +240,6 @@ export default defineComponent({
 
       try {
 
-        isLoading.value = true;
-
         await deleteBaseById(baseToDelete.value.id);
         
         // Remove da lista local
@@ -214,14 +250,12 @@ export default defineComponent({
         // Fecha o modal
         closeDeleteModal();
         
-        alert('Base excluído com sucesso!');
+        showToast('Base excluída com sucesso!', 'success');
         
       } catch (error) {
         console.error('❌ Erro ao excluir Base:', error);
-        alert('Erro ao excluir Base. Tente novamente.');
+        showToast('Erro ao excluir base. Tente novamente.', 'error');
       }
-
-       isLoading.value = false;
     };
      
     const logout = () => {
@@ -233,11 +267,18 @@ export default defineComponent({
 
     onMounted(async () => {
       bases.value = await fetchBases()
+      document.addEventListener("click", handleClickOutside);
       await new Promise(resolve => setTimeout(resolve, 1000))
       isLoading.value = false
     });
 
+    onUnmounted(() => {
+      document.removeEventListener('click', handleClickOutside);
+    });
+
     return {
+      toast,
+      showToast,
       logout,
       bases,
       isLoading,
@@ -303,13 +344,15 @@ export default defineComponent({
         <div class="w-full max-w-screen-2xl px-4 flex items-center justify-between">
 
           <!-- Logo -->
-          <div class="flex items-center justify-start">
-            <img 
-              src="../../../../../imgstorage/logo/robustec.jpg" 
-              alt="Logo" 
-              class="h-28 object-contain mx-auto"
-            >
-          </div>
+          <button @click="redirectToHomePage" class="flex items-center justify-start hover:cursor-pointer">
+            
+              <img 
+                src="../../../../../imgstorage/logo/robustec.jpg" 
+                alt="Logo" 
+                class="h-28 object-contain mx-auto"
+              >
+            
+          </button>
 
           <!-- Título central -->
           <h2 class="text-3xl font-bold text-neutral-950 text-center flex-1">
@@ -320,16 +363,24 @@ export default defineComponent({
           <div class="flex justify-end items-center gap-6">
 
             <button
+              @click="redirectToHomePage"
+              class="text-white font-semibold flex flex-col-2 gap-3 bg-emerald-800 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer hover:bg-emerald-700"
+            >
+              Página Inicial
+            </button>
+
+
+            <button
               @click="redirectToLogs"
-              class="text-black hover:bg-orange-500 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+              class="text-black hover:ring-orange-500 hover:ring-3 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
             >
               Auditoria
             </button>
 
             <div ref="menuRef" class="relative inline-block text-left">
               <button
-                @click="toggleAddMenu"
-                class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-emerald-700"
+                @click.stop="toggleAddMenu"
+                class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-emerald-700 hover:ring-emerald-800 hover:ring-3"
               >
 
                 <svg class="w-6 h-6 text-black dark:text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
@@ -358,13 +409,6 @@ export default defineComponent({
                 </div>
               </div>
             </div>
-
-            <button
-              @click="redirectToHomePage"
-              class="text-white font-semibold flex flex-col-2 gap-3 bg-emerald-800 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer hover:bg-emerald-700"
-            >
-              Página Inicial
-            </button>
 
             <button
               @click="logout"
@@ -420,7 +464,7 @@ export default defineComponent({
             <thead class="bg-neutral-400/50">
               <tr>
                 <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-black dark:text-black uppercase tracking-wider">
-                  Tipo do Base
+                  Tipo da Base
                 </th>
                 <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-black dark:text-black uppercase tracking-wider">
                   Ações
@@ -468,7 +512,7 @@ export default defineComponent({
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                       </svg>
-                      Excluir
+                      Remover
                     </button>
                   </div>
                 </td>
@@ -519,7 +563,7 @@ export default defineComponent({
               Tipo da Base <span class="text-red-400">*</span>
             </label>
             <input
-              v-model="editingBase!.tipobase"
+              v-model="editingbase!.tipobase"
               type="text"
               placeholder="Ex: Base Lateral"
               maxlength="30"
@@ -563,7 +607,7 @@ export default defineComponent({
             <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja excluir a base?</h3>
+                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja remover a base?</h3>
                   <!-- Mostra qual produto será excluído -->
                   <p v-if="baseToDelete" class="text-md text-gray-600 mt-2">
                     Base: <span class="font-semibold">{{ baseToDelete.tipobase }}</span>
@@ -594,16 +638,13 @@ export default defineComponent({
                   @click="confirmDelete"
                   class="px-6 py-2.5 hover:cursor-pointer rounded-lg  bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
                 >
-                  Excluir mesmo assim
+                  Remover mesmo assim
                 </button>
                 <button
                   @click="closeDeleteModal"
-                  class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
+                  class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors flex items-center gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  Sair
+                  Cancelar
                 </button>
               </div>
             </div>
@@ -621,7 +662,7 @@ export default defineComponent({
         <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-3xl font-bold text-black">Novo Base</h3>
+              <h3 class="text-3xl font-bold text-black">Nova Base</h3>
             </div>
             <button
               @click="isAddBaseModalOpen = false"
@@ -724,4 +765,139 @@ export default defineComponent({
     
     <!-- Fim footer-->
   </main>
+
+  <Teleport to="body">
+    <Transition
+        enter-active-class="transform transition duration-300 ease-out"
+        enter-from-class="translate-y-2 opacity-0"
+        enter-to-class="translate-y-0 opacity-100"
+        leave-active-class="transform transition duration-200 ease-in"
+        leave-from-class="translate-y-0 opacity-100"
+        leave-to-class="translate-y-2 opacity-0"
+      >
+        <div
+          v-if="toast.show"
+          class="fixed bottom-6 right-6 z-[9999] max-w-sm"
+        >
+          <div
+            class="rounded-lg shadow-2xl border overflow-hidden"
+            :class="{
+              'bg-emerald-50 border-emerald-500': toast.type === 'success',
+              'bg-red-50 border-red-500': toast.type === 'error',
+              'bg-yellow-50 border-yellow-500': toast.type === 'warning',
+              'bg-blue-50 border-blue-500': toast.type === 'info'
+            }"
+          >
+            <div class="flex items-start gap-3 p-4">
+              <!-- Ícone -->
+              <div class="flex-shrink-0">
+                <!-- Success Icon -->
+                <svg
+                  v-if="toast.type === 'success'"
+                  class="w-6 h-6 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+
+                <!-- Error Icon -->
+                <svg
+                  v-else-if="toast.type === 'error'"
+                  class="w-6 h-6 text-red-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+
+                <!-- Warning Icon -->
+                <svg
+                  v-else-if="toast.type === 'warning'"
+                  class="w-6 h-6 text-yellow-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+
+                <!-- Info Icon -->
+                <svg
+                  v-else
+                  class="w-6 h-6 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              <!-- Mensagem -->
+              <div class="flex-1">
+                <p
+                  class="font-fira text-sm font-medium"
+                  :class="{
+                    'text-emerald-900': toast.type === 'success',
+                    'text-red-900': toast.type === 'error',
+                    'text-yellow-900': toast.type === 'warning',
+                    'text-blue-900': toast.type === 'info'
+                  }"
+                >
+                  {{ toast.message }}
+                </p>
+              </div>
+
+              <!-- Botão fechar -->
+              <button
+                @click="toast.show = false"
+                class="flex-shrink-0 rounded-full p-1 transition-colors hover:cursor-pointer"
+                :class="{
+                  'text-emerald-600 hover:bg-emerald-100': toast.type === 'success',
+                  'text-red-600 hover:bg-red-100': toast.type === 'error',
+                  'text-yellow-600 hover:bg-yellow-100': toast.type === 'warning',
+                  'text-blue-600 hover:bg-blue-100': toast.type === 'info'
+                }"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Barra de progresso -->
+            <div class="h-1 bg-white/30">
+              <div
+                class="h-full animate-progress"
+                :class="{
+                  'bg-emerald-600': toast.type === 'success',
+                  'bg-red-600': toast.type === 'error',
+                  'bg-yellow-600': toast.type === 'warning',
+                  'bg-blue-600': toast.type === 'info'
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
 </template>
+
+<style scoped>
+@keyframes progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-progress {
+  animation: progress 3s linear forwards;
+}
+</style>

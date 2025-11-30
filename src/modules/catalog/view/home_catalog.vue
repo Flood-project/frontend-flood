@@ -75,37 +75,43 @@ export default defineComponent({
     
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
-      isLoading.value = true;
-
-      if (isLoading.value) {
-        console.log('await loading');
-        
-      } 
-
       try {
         const data = await withParams({
           page: 1,
           limit: 10,
           ...options
         });
-        console.log("ao filtrar com parametros", data);
+
+        console.log('📦 data.total:', data.total);
+        
+        // Atualiza os valores
         products.value = data.products_with_params
         page.value = data.page
         limit.value = data.limit
-        return data.products_with_params
+
+        // Retorna os produtos para que o chamador decida o que fazer
+        return data.products_with_params || []
+
       } catch (err) {
         console.log("Erro ao listar com parâmetros, ", err)
-        return []
-      } finally {
-        isLoading.value = false;
-      }
+        return [] // Retorna array vazio em vez de throw
+      } 
     }
 
     const onSearch = () => {
       clearTimeout(timeout);
-      timeout = window.setTimeout(() => {
-        productsWithParams({ search: search.value })
-      }, 400)
+      timeout = window.setTimeout(async () => {
+        try {
+          isLoading.value = true;
+          const data = await productsWithParams({ search: search.value });
+          products.value = data;
+        } catch (error) {
+          console.error('Erro na busca:', error);
+          products.value = [];
+        } finally {
+          isLoading.value = false;
+        }
+      }, 400);
     }
 
      const filteredAcionamentos = computed(() => {
@@ -203,47 +209,47 @@ export default defineComponent({
     const isLoadingFilters = ref (false);
 
     const filterWithParamsHandler = async () => {
-  try {
-    isLoadingFilters.value = true;
+      try {
+        isLoadingFilters.value = true;
 
-    // Log para debug
-    console.log('Filtros aplicados:', {
-      tipo_bucha: filterBucha.value,
-      tipoacionamento: filterAcionamento.value,
-      tipobase: filterBase.value
-    });
-
-        const response = await filterWithParams({
-          tipo_bucha: filterBucha.value || undefined, // Não enviar string vazia
-          tipoacionamento: filterAcionamento.value || undefined,
-          tipobase: filterBase.value || undefined,
-          page: page.value, // Usar page.value ao invés de 1 fixo
-          limit: limit.value
+        // Log para debug
+        console.log('Filtros aplicados:', {
+          tipo_bucha: filterBucha.value,
+          tipoacionamento: filterAcionamento.value,
+          tipobase: filterBase.value
         });
 
-        console.log('Response recebida:', response);
+            const response = await filterWithParams({
+              tipo_bucha: filterBucha.value || undefined, // Não enviar string vazia
+              tipoacionamento: filterAcionamento.value || undefined,
+              tipobase: filterBase.value || undefined,
+              page: page.value, // Usar page.value ao invés de 1 fixo
+              limit: limit.value
+            });
 
-        if (response && response.products_with_params) {
-          products.value = response.products_with_params;
-          total.value = response.total || 0;
-          page.value = response.page || 1;
+            console.log('Response recebida:', response);
 
-          console.log('✅ Produtos DEPOIS do filtro:', products.value.length);
-          console.log('✅ Array atualizado:', products.value);
-        } else {
-          // Se não houver produtos, limpar a lista
-          products.value = [];
-          total.value = 0;
-          console.log('Nenhum produto encontrado com os filtros aplicados');
-        }
+            if (response && response.products_with_params) {
+              products.value = response.products_with_params;
+              total.value = response.total || 0;
+              page.value = response.page || 1;
 
-      } catch (error) {
-        console.error('Erro ao filtrar produtos:', error);
-        products.value = []; // Limpar em caso de erro
-      } finally {
-        isLoadingFilters.value = false;
-      }
-    } 
+              console.log('✅ Produtos DEPOIS do filtro:', products.value.length);
+              console.log('✅ Array atualizado:', products.value);
+            } else {
+              // Se não houver produtos, limpar a lista
+              products.value = [];
+              total.value = 0;
+              console.log('Nenhum produto encontrado com os filtros aplicados');
+            }
+
+          } catch (error) {
+            console.error('Erro ao filtrar produtos:', error);
+            products.value = []; // Limpar em caso de erro
+          } finally {
+            isLoadingFilters.value = false;
+          }
+        } 
 
     const redirectToUserManagment = async () => {
 
@@ -263,6 +269,15 @@ export default defineComponent({
       filterBase.value = "";
       await productsWithParams({ page: page.value, limit: limit.value });
     };
+
+    const clearAllFilters = () => {
+      search.value = '';
+      filterBucha.value = '';
+      filterAcionamento.value = '';
+      filterBase.value = '';
+      productsWithParams({ page: page.value, limit: limit.value });
+    };
+
 
     const logout = () => {
       console.log('ta aqui');
@@ -412,28 +427,36 @@ export default defineComponent({
     
 
     onMounted(async () => {
-      products.value = await productsWithParams({page: page.value, limit: limit.value});
-      acionamentos.value = await fetchAcionamentos();
-      buchas.value = await fetchBuchas();
-      bases.value = await fetchBases();
-      search.value = "";
+      try {
+        isLoading.value = true; // ← Ativa o loading no início
+        
+        products.value = await productsWithParams({page: page.value, limit: limit.value});
+        acionamentos.value = await fetchAcionamentos();
+        buchas.value = await fetchBuchas();
+        bases.value = await fetchBases();
+        search.value = "";
 
-      checkUserGroup();
-      
-      // Event listeners
-      document.addEventListener("click", handleClickOutside);
-      document.addEventListener('keydown', handleKeydown); // ← ADICIONE
-      
-      // Carrega URLs das imagens
-      for (const product of produtosCompletos.value) {
-        if (product.images?.[0]?.storage_key) {
-          const url = await getImageUrl(product.images[0].storage_key);
-          imageUrls.value[product.images[0].storage_key] = url;
+        checkUserGroup();
+        
+        // Event listeners
+        document.addEventListener("click", handleClickOutside);
+        document.addEventListener('keydown', handleKeydown);
+        
+        // Carrega URLs das imagens
+        for (const product of produtosCompletos.value) {
+          if (product.images?.[0]?.storage_key) {
+            const url = await getImageUrl(product.images[0].storage_key);
+            imageUrls.value[product.images[0].storage_key] = url;
+          }
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error('Erro no carregamento inicial:', error);
+      } finally {
+        isLoading.value = false; // ← Garante que sempre desativa o loading
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      isLoading.value = false;
     });
 
     onUnmounted(() => {
@@ -487,6 +510,7 @@ export default defineComponent({
     });
 
     return {
+      clearAllFilters,
       checkUserGroup,
       currentImageNumber,
       previousMainImage,
@@ -597,8 +621,6 @@ export default defineComponent({
           <!-- Ações à direita -->
           <div class="flex justify-end items-center gap-6">
 
-            <h1 class="text-black font-medium">Produtos</h1>
-
             <button
               v-if="showUserManagment"
               @click="redirectToUserManagment"
@@ -609,7 +631,7 @@ export default defineComponent({
 
             <button
               @click="logout"
-              class="text-white bg-emerald-800 px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors hover:cursor-pointer"
+              class="text-white bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer"
             >
               Sair
             </button>
@@ -634,20 +656,33 @@ export default defineComponent({
             <!-- Filtro Bucha -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo da Bucha</label>
+              <div class="relative">
               <select 
                 v-model="filterBucha"
-                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
+                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
               >
                 <option disabled value="">Selecione</option>
                 <option v-for="bucha in filteredBuchas" :key="bucha.id" :value="bucha.tipobucha">
                   {{ bucha.tipobucha }}
                 </option>
               </select>
+
+              <button
+                  v-if="filterBucha"
+                  @click="filterBucha = ''"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Filtro Acionamento -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo do Acionamento</label>
+              <div class="relative">
               <select 
                 v-model="filterAcionamento"
                 class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
@@ -657,20 +692,44 @@ export default defineComponent({
                   {{ acionamento.tipoacionamento }}
                 </option>
               </select>
+
+               <button
+                  v-if="filterAcionamento"
+                  @click="filterAcionamento = ''"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Filtro Base -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo da Base</label>
-              <select 
-                v-model="filterBase"
-                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
-              >
-                <option disabled value="">Selecione</option>
-                <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
-                  {{ base.tipobase }}
-                </option>
-              </select>
+              <div class="relative">
+                <select 
+                  v-model="filterBase"
+                  class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
+                  :class="filterBase ? 'pr-10' : ''"
+                >
+                  <option disabled value="">Selecione</option>
+                  <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
+                    {{ base.tipobase }}
+                  </option>
+                </select>
+                
+                <button
+                  v-if="filterBase"
+                  @click="filterBase = ''"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Botões de ação -->
@@ -738,13 +797,26 @@ export default defineComponent({
           <!-- Barra superior: Search + Novo Produto (alinhado com o grid) -->
           <div class="flex items-center mb-6 gap-6">
             <!-- Search (esquerda) -->
-            <input
-              v-model="search"
-              @input="onSearch"
-              type="text"
-              placeholder="Buscar produto por código..."
-              class="p-3 rounded-lg w-80 bg-white text-black font-bold w-full"
-            />
+            <div class="relative w-full">
+              <input
+                v-model="search"
+                @input="onSearch"
+                type="text"
+                placeholder="Buscar produto por código..."
+                class="p-3 rounded-lg w-full bg-white text-black font-bold"
+              />
+
+              <button
+                v-if="search"
+                @click="search = ''"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-800 hover:text-black transition-colors hover:cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+            </div>
           </div>
 
           <!-- Grid de produtos -->
@@ -783,6 +855,11 @@ export default defineComponent({
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
                     </button>
+
+                    <!-- Contador de imagens -->
+                    <div v-if="product.images.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                      {{ (currentImageIndex[product.id] || 0) + 1 }} / {{ product.images.length }}
+                    </div>
                   </div>
                   
                   <!-- Indicadores de imagem (bolinhas) -->
@@ -794,11 +871,6 @@ export default defineComponent({
                       class="w-2 h-2 rounded-full transition-all hover:scale-125"
                       :class="(currentImageIndex[product.id] || 0) === index ? 'bg-white w-6' : 'bg-white/50'"
                     ></button>
-                  </div>
-                  
-                  <!-- Contador de imagens -->
-                  <div v-if="product.images.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                    {{ (currentImageIndex[product.id] || 0) + 1 }} / {{ product.images.length }}
                   </div>
                 </div>
 
@@ -848,8 +920,27 @@ export default defineComponent({
           </div>
 
           <!-- Mensagem quando não há produtos -->
-          <div v-if="!loading && products.length === 0" class="text-center py-20">
-            <p class="text-xl text-gray-600">Nenhum produto encontrado.</p>
+          <div v-if="!isLoading && products.length === 0" class="col-span-full text-center py-20">
+            <div class="flex flex-col items-center gap-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-20 h-20 text-gray-400">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+              </svg>
+              <div>
+                <p class="text-xl font-semibold text-gray-700 mb-2">
+                  Nenhum produto encontrado
+                </p>
+                <p class="text-gray-500">
+                  {{ search ? `Não encontramos resultados para "${search}"` : 'Tente ajustar os filtros de busca' }}
+                </p>
+              </div>
+              <button
+                v-if="search || hasAnyFilter"
+                @click="clearAllFilters()"
+                class="mt-4 px-6 py-2.5 bg-emerald-800 hover:bg-emerald-600 text-white rounded-lg transition-colors hover:cursor-pointer"
+              >
+                Limpar {{ search && hasAnyFilter ? 'busca e filtros' : search ? 'busca' : 'filtros' }}
+              </button>
+            </div>
           </div>
         </main>
 
@@ -975,6 +1066,21 @@ export default defineComponent({
 
 
 
+                </div>
+
+                <div class="h-12 justify-end flex">
+                  <a  :href="`https://wa.me/555433592200?text=${encodeURIComponent('Olá! Vim do catálogo e quero saber mais sobre o produto ' + fetchedProduct?.codigo)}`" target="_blank">
+                    <button 
+                      class="py-3 px-4 bg-emerald-800 text-white rounded-lg hover:bg-emerald-600 transition-colors hover:cursor-pointer flex items-center justify-center gap-2 font-fira text-lg font-semibold" 
+                    >
+                      <svg class="w-6 h-6 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                        <path fill="currentColor" fill-rule="evenodd" d="M12 4a8 8 0 0 0-6.895 12.06l.569.718-.697 2.359 2.32-.648.379.243A8 8 0 1 0 12 4ZM2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10a9.96 9.96 0 0 1-5.016-1.347l-4.948 1.382 1.426-4.829-.006-.007-.033-.055A9.958 9.958 0 0 1 2 12Z" clip-rule="evenodd"/>
+                        <path fill="currentColor" d="M16.735 13.492c-.038-.018-1.497-.736-1.756-.83a1.008 1.008 0 0 0-.34-.075c-.196 0-.362.098-.49.291-.146.217-.587.732-.723.886-.018.02-.042.045-.057.045-.013 0-.239-.093-.307-.123-1.564-.68-2.751-2.313-2.914-2.589-.023-.04-.024-.057-.024-.057.005-.021.058-.074.085-.101.08-.079.166-.182.249-.283l.117-.14c.121-.14.175-.25.237-.375l.033-.066a.68.68 0 0 0-.02-.64c-.034-.069-.65-1.555-.715-1.711-.158-.377-.366-.552-.655-.552-.027 0 0 0-.112.005-.137.005-.883.104-1.213.311-.35.22-.94.924-.94 2.16 0 1.112.705 2.162 1.008 2.561l.041.06c1.161 1.695 2.608 2.951 4.074 3.537 1.412.564 2.081.63 2.461.63.16 0 .288-.013.4-.024l.072-.007c.488-.043 1.56-.599 1.804-1.276.192-.534.243-1.117.115-1.329-.088-.144-.239-.216-.43-.308Z"/>
+                      </svg>
+
+                      <span>Contatar equipe comercial</span>
+                    </button>
+                  </a>
                 </div>
 
             </div>

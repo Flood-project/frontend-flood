@@ -33,23 +33,35 @@ export default defineComponent({
 
     const newUser = ref<CreatedUser | null>(null);
 
-    newUser.value = { name: "", email: "", id_user_group: 0, passwordHash: ""};
+    newUser.value = { name: "", email: "", id_user_group: 0, passwordHash: "", active: true};
 
 
     const editingUser = ref<EditingUser | null>(null);
-    
-
-    // const gruposUsuario = ref< { id: number; tipobucha: string } []>([]);
-    // const newGrupoUsuario = ref<Bucha | null>(null);
-    // const selectedGrupoUsuario = ref<{ id: number; tipobucha: string } | null>(null);
-    // const showGrupoUsuarioDropdown = ref(false);
-    // const grupoUsuarioSearchTerm = ref("");
 
     const isEditUserModalOpen = ref (false);
     
     const isAddUserModalOpen = ref (false);
 
     const passwordError = ref("");
+
+    const toast = ref({
+      show: false,
+      message: '',
+      type: 'success' // 'success', 'error', 'warning', 'info'
+    });
+
+    const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+      toast.value = {
+        show: true,
+        message,
+        type
+      };
+
+      // Auto-hide após 3 segundos
+      setTimeout(() => {
+        toast.value.show = false;
+      }, 3000);
+    };
 
     // Validações em tempo real usando computed
     const hasSixCharacters = computed(() => {
@@ -75,7 +87,7 @@ export default defineComponent({
 
     function openAddUserModal() {
 
-      newUser.value = { name: "", email: "", id_user_group: 0, passwordHash: ""};
+      newUser.value = { name: "", email: "", id_user_group: 0, passwordHash: "", active: true};
 
       isAddUserModalOpen.value = true;
     }
@@ -123,14 +135,16 @@ export default defineComponent({
       }
 
       try {
-        loading.value = true;
         await createUser(newUser);
         
         isAddUserModalOpen.value = false;
         confirmedPassword.value = "";
         newUser.passwordHash = "";
+
+        users.value = await usersWithParams({ page: page.value, limit: limit.value });
         
-        alert("Usuário criado com sucesso!");
+        showToast('Usuário criado com sucesso!', 'success');
+
         
       } catch (error: any) {
         if (error.response?.status === 409) {
@@ -140,10 +154,9 @@ export default defineComponent({
         } else {
           passwordError.value = "Erro ao criar usuário. Tente novamente.";
         }
-        console.error("Erro ao criar usuário:", error);
+        showToast('Erro ao criar usuário. Tente novamente!', 'error');
+
         
-      } finally {
-        loading.value = false;
       }
     };
 
@@ -157,9 +170,17 @@ export default defineComponent({
     const editUser = async (editingUser: AccountUser) => {
       console.log(editingUser);
       if (editingUser) {
-        await updateUser(editingUser.id, editingUser);
-        // atualiza na lista
-        isEditUserModalOpen.value = false // fecha modal/edição
+        try {
+          await updateUser(editingUser.id, editingUser);
+          // atualiza na lista
+          isEditUserModalOpen.value = false // fecha modal/edição
+
+          showToast('Usuário editado com sucesso!', 'success');
+
+        } catch (error: any) {
+          showToast('Erro ao editar usuário. Tente novamente!', 'error');
+
+        }
       }
     };
 
@@ -255,11 +276,13 @@ export default defineComponent({
         // Fecha o modal
         closeDeleteModal();
         
-        alert('Usuario excluído com sucesso!');
+        showToast('Usuário excluído com sucesso!', 'success');
+
         
       } catch (error) {
         console.error('❌ Erro ao excluir Usuario:', error);
-        alert('Erro ao excluir Usuario. Tente novamente.');
+        showToast('Erro ao excluir usuário. Tente novamente.', 'error');
+
       }
     };
 
@@ -271,6 +294,8 @@ export default defineComponent({
     }
 
     return { 
+      toast,
+      showToast,
       isAlertDeleteUserModalOpen,
       userToDelete,
       openAlertDeleteUserModal,
@@ -395,7 +420,7 @@ export default defineComponent({
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               
               <!-- Search -->
-              <div class="w-full sm:w-auto flex-1 max-w-md">
+              <!-- <div class="w-full sm:w-auto flex-1 max-w-md">
                 <div class="relative">
                   <input
                     v-model="search"
@@ -407,6 +432,17 @@ export default defineComponent({
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                   </svg>
+                </div>
+              </div> -->
+
+              <div class="w-full sm:w-auto flex-1 max-w-md">
+                <div class="flex items-center gap-3">
+                    <svg class="w-7 h-7 text-black mt-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                      <path fill-rule="evenodd" d="M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm-2 9a4 4 0 0 0-4 4v1a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1a4 4 0 0 0-4-4h-4Z" clip-rule="evenodd"/>
+                    </svg>
+
+
+                    <h1 class="text-black text-3xl">Usuários</h1>
                 </div>
               </div>
 
@@ -434,6 +470,9 @@ export default defineComponent({
                 </th>
                 <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-black dark:text-black uppercase tracking-wider">
                   Tipo de Usuário
+                </th>
+                <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-black dark:text-black uppercase tracking-wider">
+                  Situação
                 </th>
                 <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-black dark:text-black uppercase tracking-wider">
                   Ações
@@ -478,6 +517,20 @@ export default defineComponent({
                     {{ user.group_name }}
                   </span>
                 </td>
+
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex justify-center">
+                    <span 
+                      class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full"
+                      :class="{
+                        'bg-green-100 text-green-800 dark:bg-green-900/80 dark:text-green-300': user.active,
+                        'bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-300': !user.active
+                      }"
+                    >
+                      {{ user.active ? 'Ativo' : 'Inativo' }}
+                    </span>
+                  </div>
+                </td>
                 
                 <td class="px-6 py-4 whitespace-nowrap text-center">
                   <div class="flex items-center justify-center gap-2">
@@ -498,7 +551,7 @@ export default defineComponent({
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                       </svg>
-                      Excluir
+                      Remover
                     </button>
                   </div>
                 </td>
@@ -539,10 +592,10 @@ export default defineComponent({
             <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja excluir a bucha?</h3>
+                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja remover o usuário?</h3>
                   <!-- Mostra qual produto será excluído -->
                   <p v-if="userToDelete" class="text-md text-gray-600 mt-2">
-                    Usuario: <span class="font-semibold">{{ userToDelete.name }}; Email: {{ userToDelete.email }}</span>
+                    Usuario: <span class="font-semibold">{{ userToDelete.name }}</span>; Email: <span class="font-semibold">{{ userToDelete.email }}</span>
                   </p>
                 </div>
                 <button
@@ -570,7 +623,7 @@ export default defineComponent({
                   @click="confirmDelete"
                   class="px-6 py-2.5 hover:cursor-pointer rounded-lg  bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
                 >
-                  Excluir mesmo assim
+                  Remover mesmo assim
                 </button>
                 <button
                   @click="closeDeleteModal"
@@ -659,13 +712,13 @@ export default defineComponent({
                     </label>
                     <select
                       v-model="newUser!.id_user_group"
-                      class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
+                      class="w-full text-black placeholder:text-gray-600 focus:placeholder:text-gray-400 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                       :disabled="loading"
                     >
-                      <option value="" disabled class="bg-white text-black">Selecione o nível de acesso</option>
-                      <option value="1" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Administrador</option>
-                      <option value="2" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Usuário Normal</option>
-                      <option value="3" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Comercial</option>
+                      <option :value="0" disabled selected class="bg-white text-gray-500 hover:text-gray-300">Selecione o nível de acesso</option>
+                      <option :value="1" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Administrador</option>
+                      <option :value="2" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Usuário Normal</option>
+                      <option :value="3" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Comercial</option>
                     </select>
                   </div>
                 </div>
@@ -687,14 +740,8 @@ export default defineComponent({
                       <label class="block text-sm font-medium text-black mb-2">
                         Senha <span class="text-red-400">*</span>
                       </label>
-                      <button
-                        type="button"
-                        @click="togglePassword"
-                        class="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline dark:text-emerald-700"
-                      >
-                        {{ showPassword ? "Ocultar senha" : "Mostrar senha" }}
-                      </button>
                     </div>
+                    <div class="relative">
                     <input
                       v-model="newUser!.passwordHash"
                       :type="showPassword ? 'text' : 'password'"
@@ -705,6 +752,36 @@ export default defineComponent({
                       class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800"
                       :disabled="loading"
                     />
+                    <button
+                        type="button"
+                        @click="togglePassword"
+                        class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-800 hover:text-black transition-colors hover:cursor-pointer"
+                    >
+                      <svg 
+                        v-if="showPassword"
+                        class="w-5 h-5" 
+                        aria-hidden="true" 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path stroke="currentColor" stroke-width="2" d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6Z"/>
+                        <path stroke="currentColor" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                      </svg>
+                      
+                      <!-- Ícone de olho cortado (quando showPassword = false) -->
+                      <svg 
+                        v-else
+                        class="w-5 h-5" 
+                        aria-hidden="true" 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.933 13.909A4.357 4.357 0 0 1 3 12c0-1 4-6 9-6m7.6 3.8A5.068 5.068 0 0 1 21 12c0 1-3 6-9 6-.314 0-.62-.014-.918-.04M5 19 19 5m-4 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                      </svg>
+                    </button>
+                      </div>
                   </div>
                   
                   <!-- Confirmar Senha -->
@@ -918,8 +995,10 @@ export default defineComponent({
                     />
                   </div>
 
+                
+                   <div class="flex flex-col md:flex-row gap-4 items-start">
                   <!-- Nível de Acesso -->
-                  <div>
+                  <div class="flex-1 w-full">
                     <label class="block text-sm font-medium text-black mb-2">
                       Nível de Acesso <span class="text-red-400">*</span>
                     </label>
@@ -932,6 +1011,26 @@ export default defineComponent({
                       <option value="2" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Usuário Normal</option>
                       <option value="3" class="bg-white hover:bg-gray-200 text-black hover:cursor-pointer">Comercial</option>
                     </select>
+                  </div>
+
+                  <!-- Situação (Ativo/Inativo) -->
+                  <div class="flex-shrink-0 p-2">
+                    <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
+                    <div class="flex items-center gap-3">
+                      <span class="text-sm font-medium text-black">
+                        {{ editingUser?.active ? 'Ativo' : 'Inativo' }}
+                      </span>
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          :checked="editingUser?.active"
+                          @change="editingUser.active = $event.target.checked"
+                          class="sr-only peer"
+                        >
+                        <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                  </div>
                   </div>
                 </div>
               </div>
@@ -1022,4 +1121,139 @@ export default defineComponent({
 
     </div>
   </main>
+
+ <Teleport to="body">
+    <Transition
+        enter-active-class="transform transition duration-300 ease-out"
+        enter-from-class="translate-y-2 opacity-0"
+        enter-to-class="translate-y-0 opacity-100"
+        leave-active-class="transform transition duration-200 ease-in"
+        leave-from-class="translate-y-0 opacity-100"
+        leave-to-class="translate-y-2 opacity-0"
+      >
+        <div
+          v-if="toast.show"
+          class="fixed bottom-6 right-6 z-[9999] max-w-sm"
+        >
+          <div
+            class="rounded-lg shadow-2xl border overflow-hidden"
+            :class="{
+              'bg-emerald-50 border-emerald-500': toast.type === 'success',
+              'bg-red-50 border-red-500': toast.type === 'error',
+              'bg-yellow-50 border-yellow-500': toast.type === 'warning',
+              'bg-blue-50 border-blue-500': toast.type === 'info'
+            }"
+          >
+            <div class="flex items-start gap-3 p-4">
+              <!-- Ícone -->
+              <div class="flex-shrink-0">
+                <!-- Success Icon -->
+                <svg
+                  v-if="toast.type === 'success'"
+                  class="w-6 h-6 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+
+                <!-- Error Icon -->
+                <svg
+                  v-else-if="toast.type === 'error'"
+                  class="w-6 h-6 text-red-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+
+                <!-- Warning Icon -->
+                <svg
+                  v-else-if="toast.type === 'warning'"
+                  class="w-6 h-6 text-yellow-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+
+                <!-- Info Icon -->
+                <svg
+                  v-else
+                  class="w-6 h-6 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              <!-- Mensagem -->
+              <div class="flex-1">
+                <p
+                  class="font-fira text-sm font-medium"
+                  :class="{
+                    'text-emerald-900': toast.type === 'success',
+                    'text-red-900': toast.type === 'error',
+                    'text-yellow-900': toast.type === 'warning',
+                    'text-blue-900': toast.type === 'info'
+                  }"
+                >
+                  {{ toast.message }}
+                </p>
+              </div>
+
+              <!-- Botão fechar -->
+              <button
+                @click="toast.show = false"
+                class="flex-shrink-0 rounded-full p-1 transition-colors hover:cursor-pointer"
+                :class="{
+                  'text-emerald-600 hover:bg-emerald-100': toast.type === 'success',
+                  'text-red-600 hover:bg-red-100': toast.type === 'error',
+                  'text-yellow-600 hover:bg-yellow-100': toast.type === 'warning',
+                  'text-blue-600 hover:bg-blue-100': toast.type === 'info'
+                }"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Barra de progresso -->
+            <div class="h-1 bg-white/30">
+              <div
+                class="h-full animate-progress"
+                :class="{
+                  'bg-emerald-600': toast.type === 'success',
+                  'bg-red-600': toast.type === 'error',
+                  'bg-yellow-600': toast.type === 'warning',
+                  'bg-blue-600': toast.type === 'info'
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
 </template>
+
+<style scoped>
+@keyframes progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-progress {
+  animation: progress 3s linear forwards;
+}
+</style>

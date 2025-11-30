@@ -52,6 +52,7 @@ export default defineComponent({
     const showBasesDropdown = ref(false);
     const baseSearchTerm = ref("");
 
+
     const loading = ref(false);
     const search = ref("");
     const page = ref(1);
@@ -70,6 +71,26 @@ export default defineComponent({
     newBase.value = { id: 0, tipobase: ""};
 
     newAcionamento.value = { id: 0, tipoacionamento: ""};
+
+    const toast = ref({
+      show: false,
+      message: '',
+      type: 'success' // 'success', 'error', 'warning', 'info'
+    });
+
+    const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+      toast.value = {
+        show: true,
+        message,
+        type
+      };
+
+      // Auto-hide após 3 segundos
+      setTimeout(() => {
+        toast.value.show = false;
+      }, 3000);
+    };
+
 
     const selectedFiles = ref<{[key: number]: File}>({});
     const selectedFileNames = ref<{[key: number]: string}>({});
@@ -136,8 +157,6 @@ export default defineComponent({
         acionamentoSearchTerm.value = ''
       }
     })
-
-    onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 
     const filteredAcionamentos = computed(() => {
       return acionamentos.value.filter(a =>
@@ -262,11 +281,12 @@ export default defineComponent({
         // Fecha o modal
         closeDeleteModal();
         
-        alert('Produto excluído com sucesso!');
+        showToast('Produto excluído com sucesso!.', 'success');
         
       } catch (error) {
         console.error('❌ Erro ao excluir produto:', error);
         alert('Erro ao excluir produto. Tente novamente.');
+        showToast('Erro ao excluir produto. Tente novamente', 'error');
       }
     };
 
@@ -282,6 +302,8 @@ export default defineComponent({
       // Fecha o modal de exclusão
       isAlertDeleteProductModalOpen.value = false;
 
+      console.log("Abrindo modal de edição...", productToDelete.value)
+
       // Abre o modal de edição
       openEditModal(productToDelete.value);
 
@@ -292,7 +314,16 @@ export default defineComponent({
     const menuRef = ref<HTMLElement | null>(null);
 
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
+
+      const target = event.target as Node;
+  
+      console.log('=== CLICK OUTSIDE DISPARADO ===');
+      console.log('menuRef.value:', menuRef.value);
+      console.log('isAdicionarOpen antes:', isAdicionarOpen.value);
+      console.log('contains:', menuRef.value?.contains(target));
+      
+      if (menuRef.value && !menuRef.value.contains(target)) {
+        console.log('FECHANDO MENU!');
         isAdicionarOpen.value = false;
       }
       const dropdown = document.querySelector(".relative");
@@ -304,7 +335,10 @@ export default defineComponent({
     }
 
     function toggleAddMenu() {
+      console.log('=== TOGGLE DISPARADO ===');
+      console.log('isAdicionarOpen antes do toggle:', isAdicionarOpen.value);
       isAdicionarOpen.value = !isAdicionarOpen.value;
+      console.log('isAdicionarOpen depois do toggle:', isAdicionarOpen.value);
     }
 
     function selectAddOption(action: Function) {
@@ -527,13 +561,14 @@ export default defineComponent({
         await productsWithParams({ page: page.value, limit: limit.value });
         isEditModalOpen.value = false;
         
-        alert('Produto editado com sucesso!');
+        showToast('Produto atualizado com sucesso!', 'success');
 
       } catch (error: any) {
         console.error('❌ Erro completo:', error);
         console.error('❌ Response data:', error.response?.data);
         console.error('❌ Response status:', error.response?.status);
         alert(`Erro ao editar produto: ${error.response?.data || error.message}`);
+        showToast('Erro ao atualizar produto. Tente novamente.', 'error');
       }
     };
 
@@ -560,40 +595,37 @@ export default defineComponent({
           await productsWithParams({ page: page.value, limit: limit.value });
           isAddModalOpen.value = false;
           
-          alert('Produto criado com sucesso!');
+          showToast('Produto criado com sucesso!', 'success');
           
         } catch (error: any) {
           console.error("❌ Erro ao criar produto:", error);
-          alert(`Erro ao criar produto: ${error.response?.data || error.message}`);
+          showToast('Erro ao criar produto. Tente novamente!', 'error');
         }
       }
     };
 
     const productsWithParams = async (options = {}): Promise<ProductWithComponents[]> => {
-      isLoading.value = true;
-
-      if (isLoading.value) {
-        console.log('await loading');
-        
-      } 
-
       try {
         const data = await withParams({
           page: 1,
           limit: 10,
           ...options
         });
-        console.log(data);
+
+        console.log('📦 data.total:', data.total);
+        
+        // Atualiza os valores
         products.value = data.products_with_params
         page.value = data.page
         limit.value = data.limit
-        return data.products_with_params
+
+        // Retorna os produtos para que o chamador decida o que fazer
+        return data.products_with_params || []
+
       } catch (err) {
         console.log("Erro ao listar com parâmetros, ", err)
-        return []
-      } finally {
-        isLoading.value = false;
-      }
+        throw err // Propaga o erro para ser tratado no onSearch
+      } 
     }
 
     const isLoadingFilters = ref (false);
@@ -624,6 +656,8 @@ export default defineComponent({
               total.value = response.total || 0;
               page.value = response.page || 1;
 
+              console.log('✅ Produtos na página atual:', products.value.length);
+
               console.log('✅ Produtos DEPOIS do filtro:', products.value.length);
               console.log('✅ Array atualizado:', products.value);
             } else {
@@ -631,6 +665,7 @@ export default defineComponent({
               products.value = [];
               total.value = 0;
               console.log('Nenhum produto encontrado com os filtros aplicados');
+          
             }
 
           } catch (error) {
@@ -641,11 +676,27 @@ export default defineComponent({
           }
         }
 
-    const onSearch = () => {
+    const onSearch = async () => {
       clearTimeout(timeout);
-      timeout = window.setTimeout(() => {
-        productsWithParams({ search: search.value })
-      }, 400)
+      timeout = window.setTimeout(async () => {
+        try {
+          isLoading.value = true;
+          
+          const data = await productsWithParams({ 
+            search: search.value,
+            page: 1,
+            limit: limit.value 
+          });
+          
+          products.value = data; // Atribui os produtos retornados
+          
+        } catch (error) {
+          console.error('Erro na busca:', error);
+          products.value = []; // Limpa os produtos em caso de erro
+        } finally {
+          isLoading.value = false;
+        }
+      }, 400);
     }
 
     const clearFilters = async () => {
@@ -653,6 +704,14 @@ export default defineComponent({
       filterAcionamento.value = "";
       filterBase.value = "";
       await productsWithParams({ page: page.value, limit: limit.value });
+    };
+
+    const clearAllFilters = () => {
+      search.value = '';
+      filterBucha.value = '';
+      filterAcionamento.value = '';
+      filterBase.value = '';
+      productsWithParams({ page: page.value, limit: limit.value });
     };
 
     const redirectToLogs = async () => {
@@ -870,8 +929,10 @@ export default defineComponent({
       search.value = "";
       
       // Event listeners
+      console.log('Adicionando event listeners...');
       document.addEventListener("click", handleClickOutside);
-      document.addEventListener('keydown', handleKeydown); // ← ADICIONE
+      document.addEventListener('keydown', handleKeydown);
+      console.log('Event listeners adicionados!'); // ← ADICIONE
       
       // Carrega URLs das imagens
       for (const product of produtosCompletos.value) {
@@ -883,6 +944,7 @@ export default defineComponent({
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       isLoading.value = false;
+      console.log("ON MOUNTED FINALIZADO!!")
     });
 
     onUnmounted(() => {
@@ -936,6 +998,10 @@ export default defineComponent({
     });
 
     return {
+      clearAllFilters,
+      showToast,
+      toast,
+      menuRef,
       selectedFiles,
       selectedFileNames, // ← Use este no template ao invés de selectedFiles
       uploadAllFiles,
@@ -1093,15 +1159,15 @@ export default defineComponent({
 
             <button
               @click="redirectToLogs"
-              class="text-black hover:bg-orange-500 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
+              class="text-black hover:ring-orange-500 hover:ring-3 font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-orange-700"
             >
               Auditoria
             </button>
 
             <div ref="menuRef" class="relative inline-block text-left">
               <button
-                @click="toggleAddMenu"
-                class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-emerald-700"
+                @click.stop="toggleAddMenu"
+                class="text-black font-semibold flex flex-col-2 gap-3 bg-gray-200 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer ring-2 ring-emerald-700 hover:ring-emerald-800 hover:ring-3"
               >
 
                 <svg class="w-6 h-6 text-black dark:text-black" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
@@ -1159,6 +1225,7 @@ export default defineComponent({
             <!-- Filtro Bucha -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo da Bucha</label>
+              <div class="relative">
               <select 
                 v-model="filterBucha"
                 class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
@@ -1168,11 +1235,23 @@ export default defineComponent({
                   {{ bucha.tipobucha }}
                 </option>
               </select>
+
+              <button
+                  v-if="filterBucha"
+                  @click="filterBucha = ''"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Filtro Acionamento -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo do Acionamento</label>
+              <div class="relative">
               <select 
                 v-model="filterAcionamento"
                 class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
@@ -1182,20 +1261,44 @@ export default defineComponent({
                   {{ acionamento.tipoacionamento }}
                 </option>
               </select>
+
+               <button
+                  v-if="filterAcionamento"
+                  @click="filterAcionamento = ''"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Filtro Base -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Tipo da Base</label>
-              <select 
-                v-model="filterBase"
-                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
-              >
-                <option disabled value="">Selecione</option>
-                <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
-                  {{ base.tipobase }}
-                </option>
-              </select>
+              <div class="relative">
+                <select 
+                  v-model="filterBase"
+                  class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
+                  :class="filterBase ? 'pr-10' : ''"
+                >
+                  <option disabled value="">Selecione</option>
+                  <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
+                    {{ base.tipobase }}
+                  </option>
+                </select>
+                
+                <button
+                  v-if="filterBase"
+                  @click="filterBase = ''"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Botões de ação -->
@@ -1263,13 +1366,26 @@ export default defineComponent({
           <!-- Barra superior: Search + Novo Produto (alinhado com o grid) -->
           <div class="flex justify-between items-center mb-6 gap-6">
             <!-- Search (esquerda) -->
-            <input
-              v-model="search"
-              @input="onSearch"
-              type="text"
-              placeholder="Buscar produto por código..."
-              class="p-3 rounded-lg w-80 bg-white text-black font-bold w-full"
-            />
+            <div class="relative w-full">
+              <input
+                v-model="search"
+                @input="onSearch"
+                type="text"
+                placeholder="Buscar produto por código..."
+                class="p-3 rounded-lg w-full bg-white text-black font-bold"
+              />
+
+              <button
+                v-if="search"
+                @click="search = ''"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-800 hover:text-black transition-colors hover:cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+            </div>
 
             <!-- Novo Produto (direita) -->
             <button
@@ -1286,15 +1402,25 @@ export default defineComponent({
           <!-- Grid de produtos -->
           <div id="produtos-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
-            <div v-for="product in products" :key="product.id"
-              class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
-            >
+              <div 
+                v-for="product in products" 
+                :key="product.id"
+                class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
+                :class="{ 'opacity-50': !product.ativo }"
+              >
+
+
                <div v-if="product.images && product.images.length > 0" class="relative group">
+
+                  <div v-if="!product.ativo" class="absolute top-3 left-3 z-90 bg-red-600 text-black text-md font-bold px-3 py-1 rounded-full">
+                    INATIVO
+                  </div>
+
                   <!-- Imagem atual -->
                   <img 
                     :src="product.images[currentImageIndex[product.id] || 0].url" 
                     :alt="product.images[currentImageIndex[product.id] || 0].file_name"
-                    class="w-full h-82 object-vover rounded-t-xl"
+                    class="w-full h-82 object-cover rounded-t-xl"
                   >
                   
                   <!-- Botões de navegação (aparecem no hover) -->
@@ -1318,6 +1444,11 @@ export default defineComponent({
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
                     </button>
+
+                    <!-- Contador de imagens -->
+                    <div v-if="product.images.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                      {{ (currentImageIndex[product.id] || 0) + 1 }} / {{ product.images.length }}
+                    </div>
                   </div>
                   
                   <!-- Indicadores de imagem (bolinhas) -->
@@ -1329,11 +1460,6 @@ export default defineComponent({
                       class="w-2 h-2 rounded-full transition-all hover:scale-125"
                       :class="(currentImageIndex[product.id] || 0) === index ? 'bg-white w-6' : 'bg-white/50'"
                     ></button>
-                  </div>
-                  
-                  <!-- Contador de imagens -->
-                  <div v-if="product.images.length > 1" class="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                    {{ (currentImageIndex[product.id] || 0) + 1 }} / {{ product.images.length }}
                   </div>
                 </div>
                 
@@ -1347,7 +1473,9 @@ export default defineComponent({
               <div class="p-5 flex flex-col space-y-4">
                 <!-- Tipo e nome -->
                 <div>
-                  <h1 class="font-fira text-emerald-800 text-sm">Novo</h1>
+                  <h1 class="font-fira text-emerald-800 text-sm">
+                    {{ product.ativo ? 'Novo' : 'Inativo' }}
+                  </h1>
                   <h1 class="font-fira text-zinc-800 text-xl font-semibold">
                     Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.tipoacionamento }}
                   </h1>
@@ -1416,8 +1544,27 @@ export default defineComponent({
           </div>
 
           <!-- Mensagem quando não há produtos -->
-          <div v-if="!loading && products.length === 0" class="text-center py-20">
-            <p class="text-xl text-gray-600">Nenhum produto encontrado.</p>
+          <div v-if="!isLoading && products.length === 0" class="col-span-full text-center py-20">
+            <div class="flex flex-col items-center gap-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-20 h-20 text-gray-400">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+              </svg>
+              <div>
+                <p class="text-xl font-semibold text-gray-700 mb-2">
+                  Nenhum produto encontrado
+                </p>
+                <p class="text-gray-500">
+                  {{ search ? `Não encontramos resultados para "${search}"` : 'Tente ajustar os filtros de busca' }}
+                </p>
+              </div>
+              <button
+                v-if="search || hasAnyFilter"
+                @click="clearAllFilters()"
+                class="mt-4 px-6 py-2.5 bg-emerald-800 hover:bg-emerald-600 text-white rounded-lg transition-colors hover:cursor-pointer"
+              >
+                Limpar {{ search && hasAnyFilter ? 'busca e filtros' : search ? 'busca' : 'filtros' }}
+              </button>
+            </div>
           </div>
         </main>
 
@@ -1435,7 +1582,7 @@ export default defineComponent({
             <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja excluir o produto?</h3>
+                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja remover o produto?</h3>
                   <!-- Mostra qual produto será excluído -->
                   <p v-if="productToDelete" class="text-md text-gray-600 mt-2">
                     Código: <span class="font-semibold">{{ productToDelete.codigo }}</span>
@@ -1457,7 +1604,7 @@ export default defineComponent({
               <div class="space-y-5">
                 <h1 class="text-black">Se você prosseguir, o registro do produto será <span class="text-italic text-red-600 underline">apagado</span> <span class="text-italic text-red-600 underline">permanentemente</span>.</h1>
 
-                <h1 class="text-black">Se você quer ainda manter o registro, você pode apenas <span class="text-black font-bold">desativar</span> o produto</h1>
+                <h1 class="text-black">Se você quer ainda manter o registro, você pode apenas <span class="text-black font-bold">inativar</span> o produto</h1>
               </div>
             </div>
 
@@ -1468,15 +1615,12 @@ export default defineComponent({
                   @click="confirmDelete"
                   class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
                 >
-                  Excluir mesmo assim
+                  Remover mesmo assim
                 </button>
                 <button
                   @click="inactivateProduct"
                   class="px-5 py-2.5 rounded-lg hover:cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
                   Inativar
                 </button>
               </div>
@@ -1488,7 +1632,7 @@ export default defineComponent({
         <!-- Modal editar -->
         <div
           v-if="isEditModalOpen"
-          class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4"
+          class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
         >
           <div class="relative bg-neutral-200 rounded-4xl shadow-2xl w-full max-w-6xl max-h-[90vh]">
             
@@ -1802,6 +1946,7 @@ export default defineComponent({
                 <textarea
                   v-model="editingProduct!.description"
                   placeholder="Adicione uma descrição detalhada do produto..."
+                  maxlength="150"
                   rows="4"
                   class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 resize-none"
                 ></textarea>
@@ -1815,8 +1960,8 @@ export default defineComponent({
                   Imagens
                 </h4>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="md:col-span-2">
+              <div class="flex flex-col md:flex-row gap-4 items-start">
+                <div class="flex-1 w-full">
                   <label class="block text-sm font-medium text-black mb-2">
                     Imagens <span class="text-red-400">*</span>
                   </label>
@@ -1854,7 +1999,7 @@ export default defineComponent({
                           for="file-input-2"
                           class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
                         >
-                          <span v-if="!selectedFileNames[2]">Escolher arquivos</span>
+                          <span v-if="!selectedFileNames[2]">Escolher arquivo</span>
                           <span v-else class="truncate">{{ selectedFileNames[2] }}</span>
                         </label>
                       </div>
@@ -1873,16 +2018,14 @@ export default defineComponent({
                           for="file-input-3"
                           class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
                         >
-                          <span v-if="!selectedFileNames[3]">Escolher arquivos</span>
+                          <span v-if="!selectedFileNames[3]">Escolher arquivo</span>
                           <span v-else class="truncate">{{ selectedFileNames[3] }}</span>
                         </label>
                       </div>
                   </div>
                 </div>
 
-                <div class="flex flex-col justify-between">
-                  <div class="flex justify-end">
-                    <div class="p-2">
+                    <div class="flex-shrink-0 p-2">
                       <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
                       <div class="flex items-center gap-3">
                         <span class="text-sm font-medium text-black">
@@ -1901,8 +2044,6 @@ export default defineComponent({
                     </div>
                   </div>
                 </div>
-              </div>
-              </div>
 
             </div>
 
@@ -2047,8 +2188,29 @@ export default defineComponent({
 
                   </div>
 
+                </div>
 
+                <!-- Botão alinhado com as miniaturas -->
+                <div class="h-10 justify-end flex flex-cols-2 space-x-3">
+                  <button 
+                    class="py-3 px-4 bg-emerald-800 text-white rounded-lg hover:bg-emerald-600 transition-colors hover:cursor-pointer flex items-center justify-center gap-2 font-fira text-lg font-semibold" 
+                    @click="openEditModal(selectedProduct)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                    </svg>
+                    <span>Editar</span>
+                  </button>
 
+                  <button 
+                    class="py-3 px-4 bg-red-700 text-white rounded-lg hover:bg-red-600 transition-colors hover:cursor-pointer flex items-center justify-center gap-2 font-fira text-lg font-semibold" 
+                    @click="openAlertDeleteProductModal(selectedProduct)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                    <span>Remover</span>
+                  </button>
                 </div>
 
             </div>
@@ -2410,77 +2572,103 @@ export default defineComponent({
                 <textarea
                   v-model="newProduct!.description"
                   placeholder="Adicione uma descrição detalhada do produto..."
+                  maxlength="150"
                   rows="4"
                   class="w-full text-black placeholder:text-gray-500 focus:placeholder:text-gray-300 caret-black rounded-xl border border-black-300 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-black-500 focus:ring-2 focus:ring-black-200 dark:border-black-700 dark:bg-white dark:focus:border-emerald-400 dark:focus:ring-emerald-800 resize-none"
                 ></textarea>
               </div>
 
               <div class="">
-              <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
+                <h4 class="text-xl font-semibold text-black mb-4 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                   </svg>
                   Imagens
                 </h4>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="md:col-span-2">
+                <div class="flex flex-col md:flex-row gap-4 items-start">
+                  <div class="flex-1 w-full">
                   <label class="block text-sm font-medium text-black mb-2">
                     Imagens <span class="text-red-400">*</span>
                   </label>
                   
                   <div class="grid grid-cols-3 gap-4">
-                    <input 
-                      type="file" 
-                      id="file-input-1"
-                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
-                      @change="(event) => handleFileInput(event, 1)"
-                      accept="image/*"
-                      multiple
-                    />
+                     <div>
+                        <input 
+                          type="file" 
+                          id="file-input-1"
+                          class="hidden"
+                          @change="(event) => handleFileInput(event, 1)"
+                          accept="image/*"
+                          multiple
+                        />
+                        <label 
+                          for="file-input-1"
+                          class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
+                        >
+                          <span v-if="!selectedFileNames[1]">Escolher arquivo</span>
+                          <span v-else class="truncate">{{ selectedFileNames[1] }}</span>
+                        </label>
+                      </div>
 
-                    <input 
-                      type="file" 
-                      id="file-input-2"
-                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
-                      @change="(event) => handleFileInput(event, 2)"
-                      accept="image/*"
-                      multiple
-                    />
+                      <!-- Input 2 -->
+                      <div>
+                        <input 
+                          type="file" 
+                          id="file-input-2"
+                          class="hidden"
+                          @change="(event) => handleFileInput(event, 2)"
+                          accept="image/*"
+                          multiple
+                        />
+                        <label 
+                          for="file-input-2"
+                          class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
+                        >
+                          <span v-if="!selectedFileNames[2]">Escolher arquivo</span>
+                          <span v-else class="truncate">{{ selectedFileNames[2] }}</span>
+                        </label>
+                      </div>
 
-                    <input 
-                      type="file" 
-                      id="file-input-3"
-                      class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all"
-                      @change="(event) => handleFileInput(event, 3)"
-                      accept="image/*"
-                      multiple
-                    />
+                      <!-- Input 3 -->
+                      <div>
+                        <input 
+                          type="file" 
+                          id="file-input-3"
+                          class="hidden"
+                          @change="(event) => handleFileInput(event, 3)"
+                          accept="image/*"
+                          multiple
+                        />
+                        <label 
+                          for="file-input-3"
+                          class="w-full px-4 py-3 bg-white border border-black rounded-xl text-black cursor-pointer hover:bg-gray-300 transition-all flex items-center justify-center text-sm"
+                        >
+                          <span v-if="!selectedFileNames[3]">Escolher arquivo</span>
+                          <span v-else class="truncate">{{ selectedFileNames[3] }}</span>
+                        </label>
+                      </div>
                   </div>
                 </div>
 
-                <div class="flex flex-col justify-between">
-                  <div class="flex justify-end">
-                    <div class="p-2">
-                      <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
-                      <div class="flex items-center gap-3">
-                        <span class="text-sm font-medium text-black">
-                          {{ newProduct?.ativo ? 'Ativo' : 'Inativo' }}
-                        </span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            :checked="newProduct?.ativo"
-                            @change="newProduct.ativo = $event.target.checked"
-                            class="sr-only peer"
-                          >
-                          <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                        </label>
-                      </div>
+                  <div class="flex-shrink-0 p-2">
+                    <label class="block text-sm font-medium text-black mb-2 text-right">Situação</label>
+                    <div class="flex items-center gap-3">
+                      <span class="text-sm font-medium text-black">
+                        {{ newProduct?.ativo ? 'Ativo' : 'Inativo' }}
+                      </span>
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          :checked="newProduct?.ativo"
+                          @change="newProduct.ativo = $event.target.checked"
+                          class="sr-only peer"
+                        >
+                        <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
                     </div>
                   </div>
                 </div>
-              </div>
               </div>
 
             </div>
@@ -2789,6 +2977,127 @@ export default defineComponent({
     
     <!-- Fim footer-->
   </main>
+
+
+  <Teleport to="body">
+    <Transition
+        enter-active-class="transform transition duration-300 ease-out"
+        enter-from-class="translate-y-2 opacity-0"
+        enter-to-class="translate-y-0 opacity-100"
+        leave-active-class="transform transition duration-200 ease-in"
+        leave-from-class="translate-y-0 opacity-100"
+        leave-to-class="translate-y-2 opacity-0"
+      >
+        <div
+          v-if="toast.show"
+          class="fixed bottom-6 right-6 z-[9999] max-w-sm"
+        >
+          <div
+            class="rounded-lg shadow-2xl border overflow-hidden"
+            :class="{
+              'bg-emerald-50 border-emerald-500': toast.type === 'success',
+              'bg-red-50 border-red-500': toast.type === 'error',
+              'bg-yellow-50 border-yellow-500': toast.type === 'warning',
+              'bg-blue-50 border-blue-500': toast.type === 'info'
+            }"
+          >
+            <div class="flex items-start gap-3 p-4">
+              <!-- Ícone -->
+              <div class="flex-shrink-0">
+                <!-- Success Icon -->
+                <svg
+                  v-if="toast.type === 'success'"
+                  class="w-6 h-6 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+
+                <!-- Error Icon -->
+                <svg
+                  v-else-if="toast.type === 'error'"
+                  class="w-6 h-6 text-red-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+
+                <!-- Warning Icon -->
+                <svg
+                  v-else-if="toast.type === 'warning'"
+                  class="w-6 h-6 text-yellow-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+
+                <!-- Info Icon -->
+                <svg
+                  v-else
+                  class="w-6 h-6 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              <!-- Mensagem -->
+              <div class="flex-1">
+                <p
+                  class="font-fira text-sm font-medium"
+                  :class="{
+                    'text-emerald-900': toast.type === 'success',
+                    'text-red-900': toast.type === 'error',
+                    'text-yellow-900': toast.type === 'warning',
+                    'text-blue-900': toast.type === 'info'
+                  }"
+                >
+                  {{ toast.message }}
+                </p>
+              </div>
+
+              <!-- Botão fechar -->
+              <button
+                @click="toast.show = false"
+                class="flex-shrink-0 rounded-full p-1 transition-colors hover:cursor-pointer"
+                :class="{
+                  'text-emerald-600 hover:bg-emerald-100': toast.type === 'success',
+                  'text-red-600 hover:bg-red-100': toast.type === 'error',
+                  'text-yellow-600 hover:bg-yellow-100': toast.type === 'warning',
+                  'text-blue-600 hover:bg-blue-100': toast.type === 'info'
+                }"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Barra de progresso -->
+            <div class="h-1 bg-white/30">
+              <div
+                class="h-full animate-progress"
+                :class="{
+                  'bg-emerald-600': toast.type === 'success',
+                  'bg-red-600': toast.type === 'error',
+                  'bg-yellow-600': toast.type === 'warning',
+                  'bg-blue-600': toast.type === 'info'
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
 </template>
 
 <style>
@@ -2818,5 +3127,20 @@ export default defineComponent({
 
 .btnPagination:hover{
   cursor: pointer;
+}
+</style>
+
+<style scoped>
+@keyframes progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-progress {
+  animation: progress 3s linear forwards;
 }
 </style>
