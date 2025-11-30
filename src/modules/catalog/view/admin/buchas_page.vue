@@ -100,6 +100,9 @@ export default defineComponent({
       { label: "Bases", action: redirectToBases },
     ]);
 
+    const getEmail = ref("")
+    const menuOpen = ref(false);
+
     function toggleAddMenu() {
       isAdicionarOpen.value = !isAdicionarOpen.value;
     }
@@ -232,10 +235,19 @@ export default defineComponent({
       router.push({ path: '/' })
     }
 
+    const toggleMenu = () => {
+      menuOpen.value = !menuOpen.value;
+    };
+
     onMounted(async () => {
       buchas.value = await fetchBuchas()
       await new Promise(resolve => setTimeout(resolve, 1000))
       isLoading.value = false
+
+      const response = getClaims()
+      if (response?.email) {
+        getEmail.value = response.email
+      }
     });
 
     return {
@@ -264,6 +276,9 @@ export default defineComponent({
       selectAddOption,
       redirectToHomePage,
       redirectToLogs,
+      getEmail,
+      menuOpen,
+      toggleMenu
     };
   },
 });
@@ -367,12 +382,36 @@ export default defineComponent({
               Página Inicial
             </button>
 
-            <button
-              @click="logout"
-              class="text-white bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer"
-            >
-              Sair
-            </button>
+              <div class="relative inline-block text-left">
+                <!-- Botão principal (inicial + tooltip) -->
+                <div class="group relative">
+                  <button
+                    @click="toggleMenu"
+                    class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-700 text-white font-semibold cursor-pointer hover:bg-gray-600 transition"
+                  >
+                    {{ getEmail.charAt(0).toUpperCase() }}
+                  </button>
+
+                  <!-- Tooltip com o email -->
+                  <div
+                    class="absolute left-1/2 transform -translate-x-1/2 -bottom-12 opacity-0 group-hover:opacity-100 pointer-events-none transition bg-gray-800 text-white text-xs rounded-md px-2 py-1 whitespace-nowrap"
+                  >
+                    {{ getEmail }}
+                  </div>
+                </div>
+
+                <div
+                  v-if="menuOpen"
+                  class="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-20"
+                >
+                  <button
+                    @click="logout"
+                    class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                  >
+                    Sair
+                  </button>
+                </div>
+              </div>
 
           </div>
 
