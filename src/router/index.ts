@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from "vue-router"
-import LoginPage from "../modules/login/view/login_page.vue"
 import UserPage from "../modules/user/view/user_page.vue"
 import Usuariologado from "../Usuariologado.vue"
 import LoginTestPage from "../modules/login/view/logintest_page.vue"
@@ -17,14 +16,6 @@ import Bases_page from "../modules/catalog/view/admin/bases_page.vue"
 const router = createRouter({
     history: createWebHistory(),
     routes: [
-        {
-            path: '/login',
-            name: 'Login',
-            component: LoginPage,
-            meta: {
-                requiresAuth: false
-            }
-        },
         {
             path: '/users',
             name: 'User',
