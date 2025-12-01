@@ -1,5 +1,5 @@
 <script lang="ts">
-import { defineComponent, ref, onMounted, computed } from 'vue'
+import { defineComponent, ref, onMounted, computed, onUnmounted } from 'vue'
 import { type AccountUser } from '../domain/user';
 import { type EditingUser } from '../domain/user';
 import { type CreatedUser } from '../domain/user';
@@ -232,9 +232,25 @@ export default defineComponent({
 
     };
 
+    const userMenuRef = ref<HTMLElement | null>(null); 
+
+    function handleClickOutsideUserMenu(event: MouseEvent) {
+      const target = event.target as Node;
+      
+      if (userMenuRef.value && !userMenuRef.value.contains(target)) {
+        menuOpen.value = false;
+      }
+    }
+
     const toggleMenu = () => {
       menuOpen.value = !menuOpen.value;
     };
+
+    const sortedUsers = computed(() => {
+      return [...users.value].sort((a, b) => 
+        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+      );
+    });
 
     onMounted( async () => {
       fetchUsers();
@@ -242,9 +258,14 @@ export default defineComponent({
       if (response?.email) {
         getEmail.value = response.email
       }
+      document.addEventListener("click", handleClickOutsideUserMenu);
       users.value = await usersWithParams({ page: page.value, limit: limit.value });
       await new Promise(resolve => setTimeout(resolve, 3000))
       loading.value = false
+    });
+
+    onUnmounted(() => {
+      document.removeEventListener("click", handleClickOutsideUserMenu);
     });
 
     const onSearch = () => {
@@ -306,6 +327,8 @@ export default defineComponent({
     }
 
     return { 
+      sortedUsers,
+      userMenuRef,
       toast,
       showToast,
       isAlertDeleteUserModalOpen,
@@ -401,11 +424,11 @@ export default defineComponent({
               Visualizar Produtos
             </button>
 
-              <div class="relative inline-block text-left">
+              <div ref="userMenuRef" class="relative inline-block text-left">
                 <!-- Botão principal (inicial + tooltip) -->
                 <div class="group relative">
                   <button
-                    @click="toggleMenu"
+                    @click.stop="toggleMenu"
                     class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-700 text-white font-semibold cursor-pointer hover:bg-gray-600 transition"
                   >
                     {{ getEmail.charAt(0).toUpperCase() }}
@@ -425,7 +448,7 @@ export default defineComponent({
                 >
                   <button
                     @click="logout"
-                    class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                    class="hover:cursor-pointer w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
                   >
                     Sair
                   </button>
@@ -521,7 +544,7 @@ export default defineComponent({
 
             <tbody class="bg-neutral-200 dark:bg-neutral-300 divide-y divide-gray-200 dark:divide-gray-700">
               <tr
-                v-for="user in users"
+                v-for="user in sortedUsers"
                 :key="user.id"
                 class="hover:bg-gray-50 dark:hover:bg-neutral-400 transition-colors"
               >

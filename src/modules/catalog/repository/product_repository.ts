@@ -21,10 +21,21 @@ export const fetchById = async (id: number): Promise<Product> => {
   
 }
 
-export async function deleteProductById(id: number) {
-  const response = await instance.delete(`/products/${id}`);
-  if (response.status != 200) throw new Error("Erro ao excluir produto");
-}
+export async function deleteProductById (id: number): Promise<void> {
+  try {
+    const response = await instance.delete(`/products/${id}`);
+    
+    // Para DELETE, status 200 ou 204 são sucesso
+    if (response.status === 200 || response.status === 204) {
+      return;
+    }
+    
+    throw new Error('Erro ao excluir produto');
+  } catch (error) {
+    console.error('❌ Erro na requisição de delete:', error);
+    throw error;
+  }
+};
 
 export async function updateProduct(id: number, product: Product) {
   const response = await instance.put(`/products/${id}`, product);

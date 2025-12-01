@@ -86,14 +86,18 @@ export default defineComponent({
         });
 
         console.log('📦 data.total:', data.total);
+
+        const sortedProducts = (data.products_with_params || [])
+        .filter(p => p.ativo === true) // ← FILTRA APENAS ATIVOS
+        .sort((a, b) => b.id - a.id);
         
         // Atualiza os valores
-        products.value = data.products_with_params
+        products.value = sortedProducts
         page.value = data.page
         limit.value = data.limit
 
         // Retorna os produtos para que o chamador decida o que fazer
-        return data.products_with_params || []
+        return sortedProducts || []
 
       } catch (err) {
         console.log("Erro ao listar com parâmetros, ", err)
@@ -427,8 +431,19 @@ export default defineComponent({
         nextZoomImage();
       }
     };
-    
 
+    const userMenuRef = ref<HTMLElement | null>(null); 
+
+    function handleClickOutsideUserMenu(event: MouseEvent) {
+      const target = event.target as Node;
+      
+      if (userMenuRef.value && !userMenuRef.value.contains(target)) {
+        menuOpen.value = false;
+      }
+    }
+
+    const isSidebarOpen = ref(false);
+    
     onMounted(async () => {
       try {
         isLoading.value = true; // ← Ativa o loading no início
@@ -446,9 +461,9 @@ export default defineComponent({
         getEmail.value = response.email
       }
       
-      // Event listeners
-      document.addEventListener("click", handleClickOutside);
       document.addEventListener('keydown', handleKeydown); // ← ADICIONE
+      document.addEventListener("click", handleClickOutsideUserMenu);
+
       
       // Carrega URLs das imagens
       for (const product of produtosCompletos.value) {
@@ -469,7 +484,7 @@ export default defineComponent({
 
     onUnmounted(() => {
       document.removeEventListener('keydown', handleKeydown);
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutsideUserMenu);
       document.body.style.overflow = '';
     });
 
@@ -522,6 +537,8 @@ export default defineComponent({
     };
 
     return {
+      isSidebarOpen,
+      userMenuRef,
       clearAllFilters,
       checkUserGroup,
       currentImageNumber,
@@ -636,6 +653,22 @@ export default defineComponent({
           <!-- Ações à direita -->
           <div class="flex justify-end items-center gap-6">
 
+
+            <a href="https://wa.me/555433592200?text=Olá!%20Vim%20do%20catálogo%20e%20queria%20saber%20mais%20informações!" target="_blank">
+
+              <button
+              v-if="!showUserManagment"
+                class="text-white font-semibold flex flex-col-2 gap-3 bg-emerald-800 px-4 py-2 rounded-lg transition-colors hover:cursor-pointer hover:bg-emerald-700"
+              >
+                <svg class="w-6 h-6 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                  <path fill="currentColor" fill-rule="evenodd" d="M12 4a8 8 0 0 0-6.895 12.06l.569.718-.697 2.359 2.32-.648.379.243A8 8 0 1 0 12 4ZM2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10a9.96 9.96 0 0 1-5.016-1.347l-4.948 1.382 1.426-4.829-.006-.007-.033-.055A9.958 9.958 0 0 1 2 12Z" clip-rule="evenodd"/>
+                  <path fill="currentColor" d="M16.735 13.492c-.038-.018-1.497-.736-1.756-.83a1.008 1.008 0 0 0-.34-.075c-.196 0-.362.098-.49.291-.146.217-.587.732-.723.886-.018.02-.042.045-.057.045-.013 0-.239-.093-.307-.123-1.564-.68-2.751-2.313-2.914-2.589-.023-.04-.024-.057-.024-.057.005-.021.058-.074.085-.101.08-.079.166-.182.249-.283l.117-.14c.121-.14.175-.25.237-.375l.033-.066a.68.68 0 0 0-.02-.64c-.034-.069-.65-1.555-.715-1.711-.158-.377-.366-.552-.655-.552-.027 0 0 0-.112.005-.137.005-.883.104-1.213.311-.35.22-.94.924-.94 2.16 0 1.112.705 2.162 1.008 2.561l.041.06c1.161 1.695 2.608 2.951 4.074 3.537 1.412.564 2.081.63 2.461.63.16 0 .288-.013.4-.024l.072-.007c.488-.043 1.56-.599 1.804-1.276.192-.534.243-1.117.115-1.329-.088-.144-.239-.216-.43-.308Z"/>
+                </svg>
+                Entre em contato!
+              </button>
+
+            </a>
+
             <button
               v-if="showUserManagment"
               @click="redirectToUserManagment"
@@ -644,11 +677,11 @@ export default defineComponent({
               Gerenciar Usuários
             </button>
 
-              <div class="relative inline-block text-left">
+              <div ref="userMenuRef" class="relative inline-block text-left">
                 <!-- Botão principal (inicial + tooltip) -->
                 <div class="group relative">
                   <button
-                    @click="toggleMenu"
+                    @click.stop="toggleMenu"
                     class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-700 text-white font-semibold cursor-pointer hover:bg-gray-600 transition"
                   >
                     {{ getEmail.charAt(0).toUpperCase() }}
@@ -668,7 +701,7 @@ export default defineComponent({
                 >
                   <button
                     @click="logout"
-                    class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                    class="hover:cursor-pointer w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
                   >
                     Sair
                   </button>
@@ -685,183 +718,233 @@ export default defineComponent({
 
 
       <!-- Container principal: Filtros + Conteúdo -->
-      <div class="flex gap-6">
+      <div class="flex gap-6 relative">
+    
+    <!-- Botão de toggle para mobile (aparece apenas em telas pequenas) -->
+    <button
+      @click="isSidebarOpen = !isSidebarOpen"
+      class="lg:hidden fixed bottom-6 right-6 z-50 bg-emerald-800 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors"
+    >
+      <svg 
+        v-if="!isSidebarOpen"
+        xmlns="http://www.w3.org/2000/svg" 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke-width="2" 
+        stroke="currentColor" 
+        class="w-6 h-6"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+      </svg>
+      <svg 
+        v-else
+        xmlns="http://www.w3.org/2000/svg" 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke-width="2" 
+        stroke="currentColor" 
+        class="w-6 h-6"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <!-- Overlay escuro (mobile) -->
+    <div 
+      v-if="isSidebarOpen"
+      @click="isSidebarOpen = false"
+      class="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
+    ></div>
+    
+    <!-- Sidebar de filtros -->
+    <aside 
+      :class="[
+        'w-64 flex-shrink-0 transition-transform duration-300 z-40',
+        // Mobile: sidebar deslizante
+        'fixed lg:static top-0 left-0 h-full lg:h-auto',
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      ]"
+    >
+      <div class="bg-white/50 dark:bg-gray-400 rounded-lg p-4 space-y-4 lg:sticky lg:top-4 shadow-xl h-full lg:h-auto overflow-y-auto">
         
-        <!-- Sidebar de filtros (esquerda) -->
-        <aside class="w-64 flex-shrink-0">
-          <div class="bg-white/50 dark:bg-gray-400 rounded-lg p-4 space-y-4 sticky top-4 shadow-xl">
-            <h3 class="text-2xl font-semibold text-black mb-4">Filtros</h3>
-            
-            <!-- Filtro Bucha -->
-            <div>
-              <label class="block text-sm font-medium text-black mb-2">Tipo da Bucha</label>
-              <div class="relative">
-              <select 
-                v-model="filterBucha"
-                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
-              >
-                <option disabled value="">Selecione</option>
-                <option v-for="bucha in filteredBuchas" :key="bucha.id" :value="bucha.tipobucha">
-                  {{ bucha.tipobucha }}
-                </option>
-              </select>
+        <!-- Cabeçalho com botão fechar (mobile) -->
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-2xl font-semibold text-black">Filtros</h3>
+          <button
+            @click="isSidebarOpen = false"
+            class="lg:hidden text-gray-600 hover:text-black transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Filtro Bucha -->
+        <div>
+          <label class="block text-sm font-medium text-black mb-2">Tipo da Bucha</label>
+          <div class="relative">
+            <select 
+              v-model="filterBucha"
+              class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
+            >
+              <option disabled value="">Selecione</option>
+              <option v-for="bucha in filteredBuchas" :key="bucha.id" :value="bucha.tipobucha">
+                {{ bucha.tipobucha }}
+              </option>
+            </select>
 
-              <button
-                  v-if="filterBucha"
-                  @click="filterBucha = ''"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Filtro Acionamento -->
-            <div>
-              <label class="block text-sm font-medium text-black mb-2">Tipo do Acionamento</label>
-              <div class="relative">
-              <select 
-                v-model="filterAcionamento"
-                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300  transition-colors"
-              >
-                <option disabled value="">Selecione</option>
-                <option v-for="acionamento in filteredAcionamentos" :key="acionamento.id" :value="acionamento.tipoacionamento">
-                  {{ acionamento.tipoacionamento }}
-                </option>
-              </select>
-
-               <button
-                  v-if="filterAcionamento"
-                  @click="filterAcionamento = ''"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Filtro Base -->
-            <div>
-              <label class="block text-sm font-medium text-black mb-2">Tipo da Base</label>
-              <div class="relative">
-                <select 
-                  v-model="filterBase"
-                  class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
-                  :class="filterBase ? 'pr-10' : ''"
-                >
-                  <option disabled value="">Selecione</option>
-                  <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
-                    {{ base.tipobase }}
-                  </option>
-                </select>
-                
-                <button
-                  v-if="filterBase"
-                  @click="filterBase = ''"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Botões de ação -->
-            <div class="space-y-2 pt-4">
-              <button 
-                @click="filterWithParamsHandler()" 
-                :class="[
-                  'w-full flex items-center justify-center gap-2 h-10 font-semibold rounded-lg transition-all duration-300',
-                  hasAnyFilter && !isLoadingFilters
-                    ? 'bg-emerald-800 hover:bg-emerald-600 text-white shadow-md hover:shadow-lg hover:cursor-pointer' 
-                    : 'bg-gray-400 cursor-not-allowed text-gray-200'
-                ]"
-                :disabled="!hasAnyFilter || isLoadingFilters"
-              >
-                <!-- Ícone de busca (quando NÃO está carregando) -->
-                <svg 
-                  v-if="!isLoadingFilters"
-                  xmlns="http://www.w3.org/2000/svg" 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 376 384"
-                >
-                  <path fill="currentColor" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/>
-                </svg>
-                
-                <!-- Spinner (quando está carregando) -->
-                <svg 
-                  v-else
-                  class="animate-spin h-5 w-5" 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  fill="none" 
-                  viewBox="0 0 24 24"
-                >
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                
-                <!-- Texto dinâmico -->
-                <span>
-                  {{ 
-                    isLoadingFilters 
-                      ? 'Carregando...' 
-                      : (hasAnyFilter ? 'Filtrar' : 'Selecione um filtro') 
-                  }}
-                </span>
-              </button>
-
-              <button 
-                v-if="hasAnyFilter"
-                @click="clearFilters()" 
-                class="w-full flex items-center justify-center gap-2 h-10 bg-gray-600 font-semibold text-white rounded-lg hover:cursor-pointer hover:bg-gray-700 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-                Limpar
-              </button>
-            </div>
+            <button
+              v-if="filterBucha"
+              @click="filterBucha = ''"
+              class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        </aside>
+        </div>
 
-        <!-- Área principal (direita) - AGORA COM SEARCH DENTRO -->
-        <main class="flex-1">
-          
-          <!-- Barra superior: Search + Novo Produto (alinhado com o grid) -->
-          <div class="flex items-center mb-6 gap-6">
-            <!-- Search (esquerda) -->
-            <div class="relative w-full">
-              <input
-                v-model="search"
-                @input="onSearch"
-                type="text"
-                placeholder="Buscar produto por código..."
-                class="p-3 rounded-lg w-full bg-white text-black font-bold"
-              />
+        <!-- Filtro Acionamento -->
+        <div>
+          <label class="block text-sm font-medium text-black mb-2">Tipo do Acionamento</label>
+          <div class="relative">
+            <select 
+              v-model="filterAcionamento"
+              class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
+            >
+              <option disabled value="">Selecione</option>
+              <option v-for="acionamento in filteredAcionamentos" :key="acionamento.id" :value="acionamento.tipoacionamento">
+                {{ acionamento.tipoacionamento }}
+              </option>
+            </select>
 
-              <button
-                v-if="search"
-                @click="search = ''"
-                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-800 hover:text-black transition-colors hover:cursor-pointer"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-
-            </div>
+            <button
+              v-if="filterAcionamento"
+              @click="filterAcionamento = ''"
+              class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
+        </div>
 
-          <!-- Grid de produtos -->
-          <div id="produtos-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Filtro Base -->
+        <div>
+          <label class="block text-sm font-medium text-black mb-2">Tipo da Base</label>
+          <div class="relative">
+            <select 
+              v-model="filterBase"
+              class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 hover:cursor-pointer hover:bg-gray-300 transition-colors"
+              :class="filterBase ? 'pr-10' : ''"
+            >
+              <option disabled value="">Selecione</option>
+              <option v-for="base in filteredBases" :key="base.id" :value="base.tipobase">
+                {{ base.tipobase }}
+              </option>
+            </select>
             
-            <div v-for="product in products" :key="product.id"
+            <button
+              v-if="filterBase"
+              @click="filterBase = ''"
+              class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Botões de ação -->
+        <div class="space-y-2 pt-4">
+          <button 
+            @click="filterWithParamsHandler()" 
+            :class="[
+              'w-full flex items-center justify-center gap-2 h-10 font-semibold rounded-lg transition-all duration-300',
+              hasAnyFilter && !isLoadingFilters
+                ? 'bg-emerald-800 hover:bg-emerald-600 text-white shadow-md hover:shadow-lg hover:cursor-pointer' 
+                : 'bg-gray-400 cursor-not-allowed text-gray-200'
+            ]"
+            :disabled="!hasAnyFilter || isLoadingFilters"
+          >
+            <svg 
+              v-if="!isLoadingFilters"
+              xmlns="http://www.w3.org/2000/svg" 
+              width="20" 
+              height="20" 
+              viewBox="0 0 376 384"
+            >
+              <path fill="currentColor" d="m267 235l106 106l-32 32l-106-106v-17l-6-6q-39 33-90 33q-58 0-98.5-40.5T0 138.5t40.5-98t98-40.5t98 40.5T277 139q0 51-33 90l6 6h17zm-128 0q40 0 68-28t28-68t-28-68t-68-28t-68 28t-28 68t28 68t68 28z"/>
+            </svg>
+            
+            <svg 
+              v-else
+              class="animate-spin h-5 w-5" 
+              xmlns="http://www.w3.org/2000/svg" 
+              fill="none" 
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            
+            <span>
+              {{ 
+                isLoadingFilters 
+                  ? 'Carregando...' 
+                  : (hasAnyFilter ? 'Filtrar' : 'Selecione um filtro') 
+              }}
+            </span>
+          </button>
+
+          <button 
+            v-if="hasAnyFilter"
+            @click="clearFilters()" 
+            class="w-full flex items-center justify-center gap-2 h-10 bg-gray-600 font-semibold text-white rounded-lg hover:cursor-pointer hover:bg-gray-700 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            Limpar
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Área principal (direita) -->
+    <main class="flex-1 w-full lg:w-auto px-4 lg:px-0">
+      
+      <!-- Barra superior: Search -->
+      <div class="flex items-center mb-6">
+        <div class="relative w-full">
+          <input
+            v-model="search"
+            @input="onSearch"
+            type="text"
+            placeholder="Buscar produto por código..."
+            class="p-3 rounded-lg w-full bg-white text-black font-bold"
+          />
+
+          <button
+            v-if="search"
+            @click="search = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-800 hover:text-black transition-colors hover:cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Grid de produtos -->
+      <div id="produtos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+        
+        <div v-for="product in products" :key="product.id"
               class="flex flex-col bg-white dark:bg-gray-300 rounded-xl shadow-md transition-all duration-300 hover:shadow-xl"
             >
               <!-- Foto -->
@@ -921,7 +1004,6 @@ export default defineComponent({
               <div class="p-5 flex flex-col space-y-4">
                 <!-- Tipo e nome -->
                 <div>
-                  <h1 class="font-fira text-emerald-800 text-sm">Novo</h1>
                   <h1 class="font-fira text-zinc-800 text-xl font-semibold">
                     Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.tipoacionamento }}
                   </h1>
@@ -956,35 +1038,34 @@ export default defineComponent({
               </div>
             </div>
 
+      </div>
+
+      <!-- Mensagem quando não há produtos -->
+      <div v-if="!isLoading && products.length === 0" class="text-center py-20">
+        <div class="flex flex-col items-center gap-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-20 h-20 text-gray-400">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+          </svg>
+          <div>
+            <p class="text-xl font-semibold text-gray-700 mb-2">
+              Nenhum produto encontrado
+            </p>
+            <p class="text-gray-500 px-4">
+              {{ search ? `Não encontramos resultados para "${search}"` : 'Tente ajustar os filtros de busca' }}
+            </p>
           </div>
+          <button
+            v-if="search || hasAnyFilter"
+            @click="clearAllFilters()"
+            class="mt-4 px-6 py-2.5 bg-emerald-800 hover:bg-emerald-600 text-white rounded-lg transition-colors hover:cursor-pointer"
+          >
+            Limpar {{ search && hasAnyFilter ? 'busca e filtros' : search ? 'busca' : 'filtros' }}
+          </button>
+        </div>
+      </div>
+    </main>
 
-          <!-- Mensagem quando não há produtos -->
-          <div v-if="!isLoading && products.length === 0" class="col-span-full text-center py-20">
-            <div class="flex flex-col items-center gap-4">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-20 h-20 text-gray-400">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-              </svg>
-              <div>
-                <p class="text-xl font-semibold text-gray-700 mb-2">
-                  Nenhum produto encontrado
-                </p>
-                <p class="text-gray-500">
-                  {{ search ? `Não encontramos resultados para "${search}"` : 'Tente ajustar os filtros de busca' }}
-                </p>
-              </div>
-              <button
-                v-if="search || hasAnyFilter"
-                @click="clearAllFilters()"
-                class="mt-4 px-6 py-2.5 bg-emerald-800 hover:bg-emerald-600 text-white rounded-lg transition-colors hover:cursor-pointer"
-              >
-                Limpar {{ search && hasAnyFilter ? 'busca e filtros' : search ? 'busca' : 'filtros' }}
-              </button>
-            </div>
-          </div>
-        </main>
-
-    </div>
-
+  </div>
 
         <div
         v-if="isProductDetailsOpen && selectedProduct"

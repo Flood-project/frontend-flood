@@ -6,6 +6,7 @@ import { getUsers } from "../../../user/repository/user_repository";
 import { removeAccessTokens } from "../../../../services/token";
 import { router } from "../../../../router";
 import { getClaims } from "../../../../services/jwt_decoder";
+import { fetchProducts } from "../../repository/product_repository";
 
 
 export default defineComponent({
@@ -13,34 +14,57 @@ export default defineComponent({
 
     const isLoading = ref(true);
 
+    const isOldDataModalOpen = ref(false); // ← NOVO
+    const selectedOldData = ref(''); 
+
     const logs = ref<{ id: number;
-  table_name: string;
-  operation: string;
-  user_id: number;  
-  user_email: string;
-  ip_address: string;
-  user_agent: string;
-  created_at: string; }[]>([]);
+      table_name: string;
+      record_id: number;
+      operation: string;
+      user_id: number;  
+      user_email: string;
+      old_data: string;
+      new_data: string;
+      changed_fields: string;
+      ip_address: string;
+      user_agent: string;
+      created_at: string; 
+    }[]>([]);
 
   const users = ref([]);
   const userMap = ref<Record<number, string>>({});
 
+   const products = ref([]);
+  const productMap = ref<Record<number, string>>({});
+
     // const isLoading = ref(true);
 
     onMounted(async () => {
-      const [logsData, usersData] = await Promise.all([
+      const [logsData, usersData, productsData] = await Promise.all([
         fetchLogs(),
-        getUsers()
+        getUsers(),
+        fetchProducts()
       ]);
 
       logs.value = logsData;
       users.value = usersData;
+      products.value = productsData;
+
+      console.log("produtos retornados", productsData)
 
       // cria o map id → nome
       usersData.forEach((u: any) => {
         userMap.value[u.id] = u.name;
       });
+
+      productsData.forEach((p: any) => {
+        productMap.value[p.id] = p.codigo;
+      });
       isLoading.value = false
+
+       console.log('📦 Products Data:', productsData);
+        console.log('🗺️ Product Map:', productMap.value);
+        console.log('📋 Logs:', logsData);
 
       const response = getClaims()
       if (response?.email) {
@@ -49,21 +73,207 @@ export default defineComponent({
     });
 
     const formatDate = (date: string) => {
-      return new Date(date).toLocaleString('pt-BR');
+      const logDate = new Date(date);
+      const now = new Date();
+      
+      // Zera as horas para comparar apenas as datas
+      const logDay = new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate());
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      // Formata hora e minuto
+      const time = logDate.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      // Calcula diferença em dias
+      const diffTime = today.getTime() - logDay.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return `Hoje, às ${time}`;
+      } else if (diffDays === 1) {
+        return `Ontem, às ${time}`;
+      } else {
+        return `Há ${diffDays} dias, às ${time}`;
+      }
     };
 
-    const getUserName = (id: number) => {
-      return userMap.value[id] || `Usuário #${id}`;
+    const getUserName = (userId: number): string => {
+      console.log('🔎 Buscando usuário ID:', userId);
+      
+      // Busca no array de usuários
+      const user = users.value?.find(u => u.id === userId);
+      
+      if (!user) {
+        console.warn('❌ Usuário não encontrado:', userId);
+        return `Usuário #${userId}`;
+      }
+      
+      console.log('✅ Usuário encontrado:', user.name || user.email);
+      return user.name || user.email || `#${userId}`;
+    };
+
+    const getProductCode = (productId: number): string => {
+      console.log('🔎 Buscando produto ID:', productId);
+      
+      // Busca no array de produtos
+      const product = products.value?.find(p => p.id === productId);
+      
+      if (!product) {
+        console.warn('❌ Produto não encontrado:', productId);
+        return `Produto #${productId}`;
+      }
+      
+      console.log('✅ Produto encontrado:', product.codigo || product.name);
+      return product.codigo || product.name || `#${productId}`;
     };
 
     const getOperationColor = (operation: string) => {
       switch (operation) {
-        case 'INSERT': return 'text-green-600 font-semibold';
-        case 'UPDATE': return 'text-blue-600 font-semibold';
-        case 'DELETE': return 'text-red-600 font-semibold';
+        case 'INSERT': return 'text-green-800 font-semibold';
+        case 'UPDATE': return 'text-blue-800 font-semibold';
+        case 'DELETE': return 'text-red-800 font-semibold';
         default: return '';
       }
     }
+
+    const translateOperation = (operation: string) => {
+      const translations: Record<string, string> = {
+        'INSERT': 'Inclusão',
+        'DELETE': 'Exclusão',
+        'UPDATE': 'Alteração'
+      };
+      return translations[operation] || operation;
+    };
+
+    const getTableType = (tableName: string) => {
+      const tableTypes: Record<string, string> = {
+        'products': 'Produto',
+        'accounts': 'Usuário'
+      };
+      return tableTypes[tableName] || tableName;
+    };
+
+    // ← NOVA FUNÇÃO: Retorna o registro alterado baseado na tabela
+    const getAlteredRecord = (tableName: string, recordId: number | string) => {
+      console.log('🔍 getAlteredRecord chamado:', { tableName, recordId, type: typeof recordId });
+      
+      // ═══════════════════════════════════════════════════════════
+      // 1. Encontra o log correspondente
+      // ═══════════════════════════════════════════════════════════
+      const log = logs.value.find(l => 
+        l.table_name === tableName && 
+        (l.record_id === String(recordId) || l.record_id === recordId)
+      );
+      
+      // ═══════════════════════════════════════════════════════════
+      // 2. VALIDAÇÃO: Verifica se recordId é válido
+      // ═══════════════════════════════════════════════════════════
+      if (!recordId || recordId === '' || recordId === 'undefined' || recordId === 'null') {
+        console.warn('⚠️ recordId inválido:', recordId);
+        
+        // Se for INSERT, tenta pegar dados do new_data
+        if (log?.operation === 'INSERT' && log.new_data) {
+          if (tableName === 'products') {
+            const codigo = log.new_data.codigo;
+            console.log('✅ Código recuperado do new_data:', codigo);
+            return codigo || 'Novo produto';
+          } else if (tableName === 'accounts') {
+            const name = log.new_data.name;
+            console.log('✅ Nome recuperado do new_data:', name);
+            return name || 'Novo usuário';
+          }
+        }
+        
+        return 'Novo registro';
+      }
+      
+      // ═══════════════════════════════════════════════════════════
+      // 3. CONVERSÃO: Garante que recordId é um número
+      // ═══════════════════════════════════════════════════════════
+      const id = typeof recordId === 'string' ? parseInt(recordId, 10) : recordId;
+      
+      if (isNaN(id)) {
+        console.warn('⚠️ recordId não é um número válido:', recordId);
+        return `#${recordId}`;
+      }
+      
+      // ═══════════════════════════════════════════════════════════
+      // 4. BUSCA: Retorna código/nome baseado na tabela
+      // ═══════════════════════════════════════════════════════════
+      if (tableName === 'products') {
+        // Tenta buscar no array de produtos primeiro
+        const product = products.value?.find(p => p.id === id);
+        
+        if (product?.codigo) {
+          console.log('✅ Produto encontrado no array:', product.codigo);
+          return product.codigo;
+        }
+        
+        // Se não encontrou, busca no log (new_data ou old_data)
+        if (log) {
+          const codigo = log.new_data?.codigo || log.old_data?.codigo;
+          if (codigo) {
+            console.log('✅ Código recuperado do log:', codigo);
+            return codigo;
+          }
+        }
+        
+        console.warn('⚠️ Produto não encontrado para ID:', id);
+        return `Produto #${id}`;
+      } 
+      
+      if (tableName === 'accounts') {
+        // Tenta buscar no array de usuários primeiro
+        const user = users.value?.find(u => u.id === id);
+        
+        if (user?.name) {
+          console.log('✅ Usuário encontrado no array:', user.name);
+          return user.name;
+        }
+        
+        // Se não encontrou, busca no log (new_data ou old_data)
+        if (log) {
+          const name = log.new_data?.name || log.old_data?.name;
+          if (name) {
+            console.log('✅ Nome recuperado do log:', name);
+            return name;
+          }
+        }
+        
+        console.warn('⚠️ Usuário não encontrado para ID:', id);
+        return `Usuário #${id}`;
+      }
+      
+      return `#${id}`;
+    };
+
+    const filteredLogs = computed(() => {
+      return logs.value.filter(log => 
+        log.table_name === 'products' || log.table_name === 'accounts'
+      );
+    });
+
+    const getChangedFields = (fields: string) => {
+      return fields && fields.trim() !== '' ? fields : 'Nenhuma alteração encontrada';
+    };
+
+    const openOldDataModal = (oldData: string) => {
+      selectedOldData.value = oldData;
+      isOldDataModalOpen.value = true;
+    };
+
+    const formatOldData = (data: string) => {
+      try {
+        const parsed = JSON.parse(data);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return data;
+      }
+    };
 
     const redirectToHomePage = async () => {
 
@@ -92,6 +302,15 @@ export default defineComponent({
     };
 
     return {
+      filteredLogs,
+      isOldDataModalOpen, 
+      selectedOldData,
+      openOldDataModal, 
+      formatOldData,
+      getChangedFields,
+      getTableType,
+      getAlteredRecord,
+      translateOperation,
       isLoading,
       getUserName,
       getOperationColor,
@@ -140,13 +359,15 @@ export default defineComponent({
       <div class="w-full max-w-screen-2xl px-4 flex items-center justify-between">
 
       
-          <div class="flex items-center justify-start">
-            <img 
-              src="../../../../../imgstorage/logo/robustec.jpg" 
-              alt="Logo" 
-              class="h-28 object-contain mx-auto"
-            >
-          </div>
+          <button @click="redirectToHomePage" class="flex items-center justify-start hover:cursor-pointer">
+            
+              <img 
+                src="../../../../../imgstorage/logo/robustec.jpg" 
+                alt="Logo" 
+                class="h-28 object-contain mx-auto"
+              >
+            
+          </button>
 
  
           <h2 class="text-3xl font-bold text-neutral-950 text-center flex-1">
@@ -186,7 +407,7 @@ export default defineComponent({
                 >
                   <button
                     @click="logout"
-                    class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                    class="hover:cursor-pointer w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
                   >
                     Sair
                   </button>
@@ -207,10 +428,11 @@ export default defineComponent({
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div class="w-full sm:w-auto flex-1 max-w-md">
               <div class="flex items-center gap-3">
-                <svg class="w-7 h-7 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <path stroke="currentColor" stroke-width="2" d="M4 4h16v16H4z"/>
+                <svg class="w-6 h-6 text-black mt-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4h3a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3m0 3h6m-3 5h3m-6 0h.01M12 16h3m-6 0h.01M10 3v4h4V3h-4Z"/>
                 </svg>
-                <h1 class="text-black text-3xl">Logs de Auditoria</h1>
+
+                <h1 class="text-black text-3xl">Registros de Auditoria</h1>
               </div>
             </div>
           </div>
@@ -223,39 +445,68 @@ export default defineComponent({
           Data/Hora
         </th>
         <th class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
-          Tabela
+          Usuário
+        </th>
+        <th class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+          Produto/Usuário alterado
         </th>
         <th class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
           Operação
         </th>
+        <!-- <th class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+          Alterações
+        </th> -->
         <th class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
-          Usuário
+          Conteúdo original
         </th>
       </tr>
     </thead>
 
     <tbody class="bg-neutral-200 dark:bg-neutral-300 divide-y divide-gray-200 dark:divide-gray-700">
       <tr 
-        v-for="log in logs" 
+        v-for="log in filteredLogs" 
         :key="log.id" 
         class="hover:bg-gray-50 dark:hover:bg-neutral-400 transition-colors"
       >
-        <td class="px-6 py-4 whitespace-nowrap text-black">
+
+        {{ console.log('📋 Log completo:', JSON.stringify(log, null, 2)) }} 
+
+        <td class="px-6 py-4 whitespace-nowrap text-black font-semibold">
           {{ formatDate(log.created_at) }}
         </td>
 
         <td class="px-6 py-4 whitespace-nowrap text-black">
-          {{ log.table_name }}
+          {{ getUserName(log.user_id) }}
+        </td>
+
+        <td class="px-6 py-4 whitespace-nowrap text-black">
+          <div class="flex flex-col">
+            <span class="font-semibold">{{ getAlteredRecord(log.table_name, log.record_id) }}</span>
+            <span class="text-xs text-gray-600">{{ getTableType(log.table_name) }}</span>
+          </div>
         </td>
 
         <td class="px-6 py-4 whitespace-nowrap">
           <span :class="getOperationColor(log.operation)" class="font-semibold">
-            {{ log.operation }}
+            {{ translateOperation(log.operation) }}
           </span>
         </td>
 
+        <!-- <td class="px-6 py-4 whitespace-nowrap text-black">
+          {{ getChangedFields(log.changed_fields) }}
+        </td> -->
+
         <td class="px-6 py-4 whitespace-nowrap text-black">
-          {{ getUserName(log.user_id) }}
+          <button
+            @click="openOldDataModal(log.old_data)"
+            class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors hover:cursor-pointer text-sm font-medium"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Ver dados
+          </button>
         </td>
       </tr>
     </tbody>
@@ -263,7 +514,7 @@ export default defineComponent({
 
     <div class="bg-neutral-400/50 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-between">
     <p class="text-md text-black">
-      Mostrando <span class="font-semibold">{{ logs.length }}</span> log(s)
+      Mostrando <span class="font-semibold">{{ filteredLogs.length }}</span> registro(s)
     </p>
   </div>
 
@@ -314,5 +565,55 @@ export default defineComponent({
       </footer>
 
     </div>
+
+
+    <div
+      v-if="isOldDataModalOpen"
+      class="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/50 p-4 z-50"
+      @click.self="isOldDataModalOpen = false"
+    >
+      <div class="relative bg-neutral-200 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-gray-300 px-6 py-5 border-b border-gray-400 flex items-center justify-between sticky top-0">
+          <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-black">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+            <h3 class="text-2xl font-bold text-black">Conteúdo Original</h3>
+          </div>
+          <button
+            @click="isOldDataModalOpen = false"
+            class="hover:cursor-pointer text-black hover:text-white hover:bg-gray-600 rounded-lg p-2 transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Conteúdo -->
+        <div class="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+          <div v-if="selectedOldData" class="bg-gray-800 text-green-400 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+            <pre class="whitespace-pre-wrap break-words">{{ formatOldData(selectedOldData) }}</pre>
+          </div>
+          <div v-else class="text-center py-8 text-gray-500">
+            <p class="text-lg">Nenhum dado original registrado</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-300 px-6 py-4 border-t border-gray-400 flex justify-end sticky bottom-0">
+          <button
+            @click="isOldDataModalOpen = false"
+            class="hover:cursor-pointer px-6 py-2.5 rounded-lg bg-gray-600 hover:bg-gray-500 text-white font-medium transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+
+      </div>
+    </div>
+
   </main>
 </template>

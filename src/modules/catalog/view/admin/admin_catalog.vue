@@ -111,7 +111,7 @@ export default defineComponent({
     });
 
     const hasAnyFilter = computed(() => {
-      return !!(filterBucha.value || filterAcionamento.value || filterBase.value || isActive.value == true || isActive.value == false || isActive.value == undefined);
+      return !!(filterBucha.value || filterAcionamento.value || filterBase.value || isActive.value);
     });
 
     const acionamentoMap = computed<Record<number, string>>(() => {
@@ -271,24 +271,46 @@ export default defineComponent({
         return;
       }
 
-      console.log('🗑️ Excluindo produto:', productToDelete.value.id);
+      console.log('🗑️ Iniciando exclusão do produto:', productToDelete.value.id);
 
       try {
+        // 1. Exclui o produto
+        console.log('📡 Chamando deleteProductById...');
         await deleteProductById(productToDelete.value.id);
+        console.log('✅ deleteProductById concluído com sucesso');
         
-        // Remove da lista local
-        products.value = products.value.filter((p) => p.id !== productToDelete.value!.id);
+        // 2. Remove da lista local
+        console.log('🔄 Removendo da lista local...');
+        const productId = productToDelete.value.id;
+        products.value = products.value.filter((p) => p.id !== productId);
+        console.log('✅ Removido da lista local');
         
-        console.log('✅ Produto excluído com sucesso');
-        
-        // Fecha o modal
+        // 3. Fecha o modal
+        console.log('🚪 Fechando modal...');
         closeDeleteModal();
+        console.log('✅ Modal fechado');
         
-        showToast('Produto excluído com sucesso!.', 'success');
+        // 4. Mostra toast de sucesso
+        console.log('📢 Mostrando toast de sucesso...');
+        showToast('Produto excluído com sucesso!', 'success');
         
-      } catch (error) {
+        // 5. Tenta recarregar a lista
+        console.log('🔄 Recarregando lista de produtos...');
+        try {
+          await productsWithParams({ page: page.value, limit: limit.value });
+          console.log('✅ Lista recarregada com sucesso');
+        } catch (reloadError) {
+          console.warn('⚠️ Erro ao recarregar lista (produto já foi excluído):', reloadError);
+          // Não propaga o erro pois o produto já foi excluído
+        }
+        
+      } catch (error: any) {
         console.error('❌ Erro ao excluir produto:', error);
-        alert('Erro ao excluir produto. Tente novamente.');
+        console.error('📋 Detalhes do erro:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         showToast('Erro ao excluir produto. Tente novamente', 'error');
       }
     };
@@ -315,6 +337,7 @@ export default defineComponent({
     };
 
     const menuRef = ref<HTMLElement | null>(null);
+    const userMenuRef = ref<HTMLElement | null>(null); 
 
     function handleClickOutside(event: MouseEvent) {
 
@@ -334,6 +357,14 @@ export default defineComponent({
         showAcionamentosDropdown.value = false;
         showBasesDropdown.value = false;
         showBuchasDropdown.value = false;
+      }
+    }
+
+    function handleClickOutsideUserMenu(event: MouseEvent) {
+      const target = event.target as Node;
+      
+      if (userMenuRef.value && !userMenuRef.value.contains(target)) {
+        menuOpen.value = false;
       }
     }
 
@@ -616,9 +647,12 @@ export default defineComponent({
         });
 
         console.log('📦 data.total:', data.total);
+
+        const sortedProducts = (data.products_with_params || []).sort((a, b) => b.id - a.id);
+
         
         // Atualiza os valores
-        products.value = data.products_with_params
+        products.value = sortedProducts
         page.value = data.page
         limit.value = data.limit
 
@@ -945,6 +979,7 @@ export default defineComponent({
       console.log('Adicionando event listeners...');
       document.addEventListener("click", handleClickOutside);
       document.addEventListener('keydown', handleKeydown);
+      document.addEventListener("click", handleClickOutsideUserMenu);
       console.log('Event listeners adicionados!'); // ← ADICIONE
       
       // Carrega URLs das imagens
@@ -963,6 +998,7 @@ export default defineComponent({
     onUnmounted(() => {
       document.removeEventListener('keydown', handleKeydown);
       document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutsideUserMenu);
       document.body.style.overflow = '';
     });
 
@@ -1015,6 +1051,7 @@ export default defineComponent({
     };
 
     return {
+      userMenuRef,
       clearAllFilters,
       showToast,
       toast,
@@ -1218,11 +1255,11 @@ export default defineComponent({
               </div>
             </div>
 
-            <div class="relative inline-block text-left">
+            <div ref="userMenuRef" class="relative inline-block text-left">
                 <!-- Botão principal (inicial + tooltip) -->
                 <div class="group relative">
                   <button
-                    @click="toggleMenu"
+                    @click.stop="toggleMenu"
                     class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-700 text-white font-semibold cursor-pointer hover:bg-gray-600 transition"
                   >
                     {{ getEmail.charAt(0).toUpperCase() }}
@@ -1242,7 +1279,7 @@ export default defineComponent({
                 >
                   <button
                     @click="logout"
-                    class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
+                    class="hover:cursor-pointer w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition"
                   >
                     Sair
                   </button>
@@ -1349,16 +1386,27 @@ export default defineComponent({
             <!-- Filtro Ativo -->
             <div>
               <label class="block text-sm font-medium text-black mb-2">Status</label>
-              <select
-                v-model="isActive"
-                class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 
-                      hover:cursor-pointer hover:bg-gray-300 transition-colors"
-              >
-                <option disabled value="">Selecione</option>
-                <option :value="null">Todos</option>
-                <option :value="true">Ativos</option>
-                <option :value="false">Inativos</option>
-              </select>
+              <div class="relative">
+                <select
+                  v-model="isActive"
+                  class="w-full h-10 bg-white font-semibold text-black rounded-lg px-3 
+                        hover:cursor-pointer hover:bg-gray-300 transition-colors"
+                >
+                  <option disabled value="">Selecione</option>
+                  <option :value="null">Todos</option>
+                  <option :value="true">Ativos</option>
+                  <option :value="false">Inativos</option>
+                </select>
+                <button
+                    v-if="isActive"
+                    @click="isActive = ''"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-800 transition-colors hover:cursor-pointer hover:text-black"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Botões de ação -->
@@ -1534,7 +1582,7 @@ export default defineComponent({
                 <!-- Tipo e nome -->
                 <div>
                   <h1 class="font-fira text-emerald-800 text-sm">
-                    {{ product.ativo ? 'Novo' : 'Inativo' }}
+                    {{ product.ativo ? 'Disponível' : 'Inativo' }}
                   </h1>
                   <h1 class="font-fira text-zinc-800 text-xl font-semibold">
                     Pé de Apoio {{ product.capacidade_estatica }} Kg Acionamento {{ product.tipoacionamento }}
@@ -1573,7 +1621,7 @@ export default defineComponent({
                           </svg>
                         </button>
                         <span class="font-fira absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                          Remover
+                          Excluir
                         </span>
                       </div>
                     </div>
@@ -1642,7 +1690,7 @@ export default defineComponent({
             <div class="bg-gray-300 px-8 py-6 border-b border-black-700/50 rounded-xl shadow-lg">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja remover o produto?</h3>
+                  <h3 class="text-3xl font-bold text-black">Tem certeza que você deseja excluir o produto?</h3>
                   <!-- Mostra qual produto será excluído -->
                   <p v-if="productToDelete" class="text-md text-gray-600 mt-2">
                     Código: <span class="font-semibold">{{ productToDelete.codigo }}</span>
@@ -1675,7 +1723,7 @@ export default defineComponent({
                   @click="confirmDelete"
                   class="px-6 py-2.5 hover:cursor-pointer rounded-lg bg-red-700 hover:bg-red-600 text-white font-medium transition-colors"
                 >
-                  Remover mesmo assim
+                  Excluir mesmo assim
                 </button>
                 <button
                   @click="inactivateProduct"
@@ -2269,7 +2317,7 @@ export default defineComponent({
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
-                    <span>Remover</span>
+                    <span>Excluir</span>
                   </button>
                 </div>
 
